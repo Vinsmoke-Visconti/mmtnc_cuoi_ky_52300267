@@ -1,0 +1,47 @@
+\section{PHÂN TÍCH, SO SÁNH VÀ KẾT LUẬN}
+
+\subsection{Phân tích ảnh hưởng của kiến trúc LAN}
+Dựa trên kết quả đo lường từ chương trước, ta có thể đánh giá sơ bộ ưu và nhược điểm của từng kiến trúc LAN khi truyền tải dữ liệu qua môi trường Metro Ethernet:
+
+\subsubsection{Mạng Flat (Site A)}
+\begin{itemize}
+    \item \textbf{Ưu điểm:} Cấu trúc đơn giản, độ trễ xử lý nội bộ (Switching Delay) cực thấp do dữ liệu đi thẳng không qua nhiều lớp thiết bị.
+    \item \textbf{Nhược điểm:} Thiếu khả năng mở rộng, nếu Broadcast Domain lớn sẽ gây Broadcast Storm làm sụt giảm băng thông. Thích hợp cho chi nhánh nhỏ.
+\end{itemize}
+
+\subsubsection{Mạng 3 lớp (Site B)}
+\begin{itemize}
+    \item \textbf{Ưu điểm:} Khả năng phân luồng tốt, dễ quản lý, có tính sẵn sàng cao (High Availability) nhờ các liên kết dự phòng.
+    \item \textbf{Nhược điểm:} Độ trễ cao hơn mạng Flat do gói tin phải đi qua nhiều lớp Switch (Access $\rightarrow$ Distribution $\rightarrow$ Core). STP (Spanning Tree Protocol) có thể khóa một số port làm lãng phí băng thông dự phòng.
+\end{itemize}
+
+\subsubsection{Mạng Leaf-Spine (Site C)}
+\begin{itemize}
+    \item \textbf{Ưu điểm:} Băng thông cực lớn, độ trễ ổn định và có thể dự đoán được (tất cả các Leaf cách nhau đúng một hop qua Spine). Tuyệt vời cho lưu lượng tải nặng ngang (East-West traffic).
+    \item \textbf{Nhược điểm:} Yêu cầu cấu hình phức tạp, tiêu tốn nhiều dây cáp quang và port giao tiếp hơn so với mạng 3 lớp truyền thống.
+\end{itemize}
+
+\subsection{Biểu đồ so sánh hiệu năng (Mô phỏng)}
+Dưới đây là biểu đồ so sánh độ trễ (RTT) và Băng thông (Throughput) giữa các cặp liên kết.
+
+\begin{figure}[H]
+    \centering
+    % [NOTE] SAU KHI VẼ BIỂU ĐỒ BẰNG EXCEL TỪ FILE KẾT QUẢ, HÃY LƯU THÀNH ẢNH VÀ DÁN VÀO ĐÂY
+    % \includegraphics[width=0.8\textwidth]{image/chart_delay.png}
+    \caption{Biểu đồ so sánh Độ trễ (RTT) giữa các chi nhánh}
+    \label{fig:chart_delay}
+\end{figure}
+\textit{\textbf{Giải thích minh chứng:} Biểu đồ \ref{fig:chart_delay} so sánh độ trễ khứ hồi trung bình. Kết quả thực tế cho thấy Site A và Site B có độ trễ ~26.82ms, trong khi Site B và C chỉ mất ~20.50ms do cùng kết nối vào PE2. Điều này chứng minh khoảng cách hop trong mạng lõi MPLS ảnh hưởng trực tiếp đến RTT.}
+
+\begin{figure}[H]
+    \centering
+    % [NOTE] SAU KHI VẼ BIỂU ĐỒ BẰNG EXCEL TỪ FILE KẾT QUẢ, HÃY LƯU THÀNH ẢNH VÀ DÁN VÀO ĐÂY
+    % \includegraphics[width=0.8\textwidth]{image/chart_throughput.png}
+    \caption{Biểu đồ so sánh Băng thông (Throughput) giữa các chi nhánh}
+    \label{fig:chart_throughput}
+\end{figure}
+\textit{\textbf{Giải thích minh chứng:} Hình \ref{fig:chart_throughput} thể hiện thông lượng truyền tải dữ liệu. Kết quả đo được 189Mbps tại Site C (Leaf-Spine) khi giao tiếp nội bộ PE cho thấy khả năng chịu tải cực tốt của kiến trúc này so với mức ~100Mbps khi phải đi qua các đường WAN Backbone.}
+
+\subsection{Kết luận chung}
+Đồ án đã mô phỏng và triển khai thành công kiến trúc mạng Metro Ethernet sử dụng công nghệ MPLS kết nối 3 chi nhánh doanh nghiệp có hạ tầng LAN nội bộ khác biệt. 
+Qua quá trình thực nghiệm trên nền tảng Mininet, hệ thống đã chứng minh được sự vượt trội của MPLS Label Switching trong việc chuyển tiếp gói tin nhanh chóng qua mạng lõi của ISP. Đồng thời, kết quả kiểm thử cũng cho thấy lựa chọn kiến trúc mạng LAN có ảnh hưởng trực tiếp đến hiệu năng truyền thông đầu cuối của doanh nghiệp. Mạng Leaf-Spine thể hiện sự ưu việt trong quy mô lớn, trong khi mô hình 3 lớp vẫn giữ vững vai trò tiêu chuẩn cho các tòa nhà văn phòng thông thường.

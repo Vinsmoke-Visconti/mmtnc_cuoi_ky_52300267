@@ -1,0 +1,66 @@
+\section{THIẾT KẾ HỆ THỐNG MẠNG}
+
+\subsection{Sơ đồ mạng tổng thể}
+Hệ thống mạng được thiết kế gồm một mạng lõi MPLS Backbone kết nối 3 chi nhánh với 3 kiến trúc LAN khác biệt.
+
+\begin{figure}[H]
+    \centering
+    % [NOTE] COPY ẢNH VÀO THƯ MỤC image/ VÀ ĐỔI TÊN THÀNH network_topology.png
+    \includegraphics[width=1\textwidth]{image/network_topology.png}
+    \caption{Sơ đồ kiến trúc mạng Metro Ethernet MPLS tổng thể}
+    \label{fig:topology}
+\end{figure}
+\textit{\textbf{Giải thích minh chứng:} Hình \ref{fig:topology} minh họa toàn bộ hệ thống mạng được giả lập trên Mininet. Hình ảnh bao gồm bảng địa chỉ IP chi tiết và phần chú thích cách các luồng dữ liệu di chuyển từ LAN vào mạng lõi MPLS.}
+
+\subsection{Quy hoạch thiết bị}
+Hệ thống sử dụng tổng cộng 11 Switch, 7 Router và 10 Host. Bảng dưới đây liệt kê vai trò của các thiết bị chính:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{3cm}|p{3.5cm}|p{8cm}|}
+    \hline
+    \rowcolor[HTML]{2C3E50} 
+    \color{white} \textbf{Phân loại} & \color{white} \textbf{Tên thiết bị} & \color{white} \textbf{Chức năng} \\ \hline
+    \textbf{Core Router (P)} & P1, P2 & Router lõi của ISP, chịu trách nhiệm hoán đổi nhãn MPLS tốc độ cao. \\ \hline
+    \textbf{Edge Router (PE)} & PE1, PE2 & Router biên của ISP, nhận gói tin từ khách hàng, gán nhãn (Push) và đẩy vào MPLS Backbone. \\ \hline
+    \textbf{Customer Router (CE)} & CE1, CE2, CE3 & Router biên phía khách hàng, định tuyến gói tin từ LAN ra WAN. \\ \hline
+    \textbf{LAN Site A} & s1 (Flat) & Switch Layer 2 kết nối trực tiếp các Host. \\ \hline
+    \textbf{LAN Site B} & s2 (Core), s3-s4 (Dist), s5-s6 (Access) & Hệ thống Switch phân cấp 3 lớp có dự phòng. \\ \hline
+    \textbf{LAN Site C} & s7-s8 (Spine), s9-s11 (Leaf) & Mạng Leaf-Spine kết nối dạng lưới (Full Mesh). \\ \hline
+    \end{tabular}
+    \caption{Bảng thống kê và chức năng thiết bị}
+    \label{tab:devices}
+\end{table}
+
+\subsection{Quy hoạch địa chỉ IP}
+Việc quy hoạch địa chỉ IP được chia thành không gian địa chỉ Public (dành cho MPLS Backbone) và Private (dành cho các LAN nội bộ).
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{3cm}|p{4cm}|p{7cm}|}
+    \hline
+    \rowcolor[HTML]{2C3E50} 
+    \color{white} \textbf{Phân vùng} & \color{white} \textbf{Subnet / Địa chỉ IP} & \color{white} \textbf{Ghi chú} \\ \hline
+    \textbf{Backbone Link} & 10.0.12.0/30, 10.0.13.0/30, 10.0.24.0/30 & Các liên kết Point-to-Point giữa P và PE. \\ \hline
+    \textbf{Loopback} & 10.255.0.x / 32 & Địa chỉ Loopback dùng cho OSPF Router-ID. \\ \hline
+    \textbf{WAN Link} & 172.16.x.0 / 30 & Đường truyền WAN nối từ CE đến PE. \\ \hline
+    \textbf{Site A (Flat)} & 192.168.10.0 / 24 & Mạng LAN nội bộ chi nhánh A. \\ \hline
+    \textbf{Site B (3-Tier)} & 192.168.20.0 / 24 & Mạng LAN nội bộ chi nhánh B. \\ \hline
+    \textbf{Site C (Leaf-Spine)}& 192.168.30.0 / 24 & Mạng LAN nội bộ chi nhánh C. \\ \hline
+    \end{tabular}
+    \caption{Bảng quy hoạch không gian địa chỉ IP}
+    \label{tab:ip}
+\end{table}
+
+\subsection{Cách thức vận hành và Định tuyến}
+
+\paragraph{1. Định tuyến nội bộ (IGP)}
+Mạng lõi sử dụng giao thức OSPF Area 0 để quảng bá các đường mạng giữa P1, P2, PE1, PE2. Các Router CE tại các chi nhánh được cấu hình Static Route mặc định trỏ thẳng về các PE tương ứng. Các Router PE thực hiện "Redistribute Static" để đưa các đường mạng nội bộ của khách hàng vào bảng định tuyến OSPF.
+
+\paragraph{2. Quá trình chuyển mạch nhãn MPLS (Label Switching)}
+Giao thức LDP (Label Distribution Protocol) được kích hoạt trên tất cả cổng mạng lõi. LDP tự động gắn nhãn (Label) cho các mạng đích mà OSPF học được. Quá trình truyền dữ liệu từ Site A sang Site C diễn ra như sau:
+\begin{enumerate}
+    \item \textbf{Ingress (Vào mạng):} Gói tin từ CE1 đến PE1. PE1 nhận diện đích đến là Site C, liền tiến hành gắn nhãn MPLS (Push Label) cho gói tin và đẩy qua P1.
+    \item \textbf{Transit (Trung chuyển):} Khi P1 và P2 nhận được gói tin, chúng không đọc header IP lớp 3 mà chỉ đọc nhãn MPLS ở lớp 2.5, sau đó hoán đổi nhãn (Swap Label) và đẩy gói tin đi tiếp. Tốc độ xử lý ở giai đoạn này rất nhanh.
+    \item \textbf{Egress (Ra mạng):} Áp dụng cơ chế Penultimate Hop Popping (PHP), Router P2 (trước PE2 một bước nhảy) sẽ chủ động gỡ nhãn (Pop Label). Gói tin khi đến PE2 trở thành gói IP thuần túy, giúp PE2 giảm bớt gánh nặng xử lý trước khi đẩy về CE3 ở Site C.
+\end{enumerate}

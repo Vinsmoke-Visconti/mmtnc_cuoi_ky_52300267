@@ -1,0 +1,34 @@
+\section*{TÓM TẮT ĐỒ ÁN\\THIẾT KẾ VÀ TRIỂN KHAI MẠNG METRO ETHERNET SỬ DỤNG MPLS}
+
+\begin{itemize}
+    \item \textbf{Vấn đề nghiên cứu:}
+    
+    Đồ án tập trung nghiên cứu và mô phỏng hạ tầng mạng Metro Ethernet MAN sử dụng công nghệ chuyển mạch nhãn đa giao thức (MPLS). Mục tiêu cốt lõi là giải quyết bài toán kết nối đa chi nhánh doanh nghiệp có kiến trúc mạng nội bộ (LAN) khác nhau thông qua mạng lõi của nhà cung cấp dịch vụ (ISP). Báo cáo được cấu trúc gồm 4 chương:
+    
+        \begin{itemize}
+        \item[--] Chương 1: Tổng quan và Cơ sở lý thuyết.
+        \item[--] Chương 2: Thiết kế hệ thống mạng.
+        \item[--] Chương 3: Triển khai và Kiểm thử trên Mininet.
+        \item[--] Chương 4: Phân tích, So sánh và Kết luận.
+        \end{itemize}
+        
+    \item \textbf{Các hướng tiếp cận:}
+    
+        \begin{itemize}
+        \item[--] \textit{Lý thuyết:} Nghiên cứu các chuẩn Metro Ethernet, nguyên lý hoạt động của MPLS (Label Switching), các giao thức định tuyến OSPF và LDP. Đồng thời tìm hiểu các kiến trúc LAN hiện đại như Flat, 3-Tier và Leaf-Spine.
+        
+        \item[--] \textit{Thực hành:} Sử dụng trình giả lập Mininet kết hợp với FRRouting để triển khai mạng lõi MPLS Backbone và các vùng mạng khách hàng. Tự động hóa quá trình đo lường hiệu năng bằng Script Python.
+        \end{itemize}
+        
+    \item \textbf{Cách giải quyết vấn đề:}
+    
+    Xây dựng một cấu trúc mạng mô phỏng hoàn chỉnh gồm các Router lõi (P), Router biên (PE) và Router khách hàng (CE). Cấu hình OSPF để đồng bộ bảng định tuyến và LDP để tự động phân phối nhãn nhãn. Triển khai 3 chi nhánh với 3 kiến trúc LAN đặc thù để so sánh sự khác biệt về hiệu năng khi truyền tải qua môi trường MPLS.
+    
+    \item \textbf{Kết quả đạt được:}
+    
+    Hệ thống đã hội tụ định tuyến thành công và thực hiện chuyển mạch nhãn chính xác (được xác nhận qua Traceroute). Các kịch bản đo lường tự động đã cung cấp số liệu thực tế về thông lượng (Throughput), độ trễ (Delay) và Jitter. Kết quả cho thấy MPLS giúp tăng tốc độ xử lý gói tin đáng kể và đảm bảo tính ổn định cao cho kết nối liên chi nhánh.
+    
+    Đồ án giúp sinh viên nắm vững kỹ năng thiết kế, cấu hình và đánh giá một hệ thống mạng diện rộng chuyên nghiệp trên nền tảng giả lập Linux.
+\end{itemize}
+
+\newpage

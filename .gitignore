@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+results/*.json
+results/*.xlsx
+results/*.png
+docs/*.png
+/tmp/frr_*/
+*.log
+.DS_Store

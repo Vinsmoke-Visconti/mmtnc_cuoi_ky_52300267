@@ -1,0 +1,32 @@
+\section{TỔNG QUAN VÀ CƠ SỞ LÝ THUYẾT}
+
+\subsection{Tổng quan về bài toán kết nối đa chi nhánh}
+Trong kỷ nguyên chuyển đổi số, nhu cầu kết nối dữ liệu giữa các chi nhánh của một doanh nghiệp ngày càng tăng cao cả về quy mô lẫn yêu cầu băng thông. Bài toán đặt ra là làm thế nào để liên kết các chi nhánh có khoảng cách xa về mặt địa lý thông qua một hạ tầng mạng dùng chung của nhà cung cấp dịch vụ (ISP), nhưng vẫn đảm bảo được hiệu năng, tính bảo mật và sự cô lập dữ liệu. Công nghệ Metro Ethernet kết hợp với MPLS đã trở thành tiêu chuẩn vàng để giải quyết vấn đề này.
+
+\subsection{Mạng Metro Ethernet và kiến trúc MAN}
+Metro Ethernet là mạng đô thị (MAN - Metropolitan Area Network) dựa trên tiêu chuẩn Ethernet. Nó cung cấp khả năng kết nối mạng LAN của các doanh nghiệp lại với nhau qua hạ tầng của ISP bằng các đường link Ethernet truyền thống thay vì các chuẩn viễn thông cũ như Frame Relay hay ATM. Ưu điểm của Metro Ethernet là tốc độ cao, dễ dàng mở rộng (scalability) và thân thiện với kiến trúc IP.
+
+\subsection{Tổng quan về MPLS (Multiprotocol Label Switching)}
+MPLS (Chuyển mạch nhãn đa giao thức) là một kỹ thuật định tuyến nằm giữa Layer 2 và Layer 3 trong mô hình OSI. Thay vì tra cứu bảng định tuyến IP ở mỗi hop (bước nhảy) như truyền thống, MPLS sử dụng các "Nhãn" (Label) ngắn độ dài cố định để quyết định đường đi của gói tin.
+
+\subsubsection{Ưu điểm của MPLS}
+\begin{itemize}
+    \item \textbf{Tốc độ chuyển mạch cao:} Router chỉ cần đọc nhãn ở phần mào đầu (header) mà không cần phân tích sâu vào gói tin IP.
+    \item \textbf{Lưu lượng kỹ thuật (Traffic Engineering):} Dễ dàng điều hướng lưu lượng tránh tắc nghẽn.
+    \item \textbf{Hỗ trợ VPN:} Tạo ra các đường hầm ảo (VPN) an toàn trên cùng một hạ tầng vật lý.
+\end{itemize}
+
+\subsection{Giao thức định tuyến OSPF và LDP}
+\subsubsection{OSPF (Open Shortest Path First)}
+OSPF là giao thức định tuyến động nội vùng (IGP) dựa trên trạng thái liên kết (Link-State). Trong đồ án này, OSPF được cấu hình ở Area 0 để giúp các Router lõi (P và PE) học được địa chỉ Loopback của nhau.
+
+\subsubsection{LDP (Label Distribution Protocol)}
+LDP là giao thức được sử dụng song song với OSPF để tự động phân phối nhãn cho các mạng đích đã học được. LDP sẽ gán nhãn cho các gói tin đi vào mạng lõi và chịu trách nhiệm hoán đổi nhãn dọc theo đường truyền.
+
+\subsection{Các kiến trúc mạng LAN nội bộ}
+Mỗi chi nhánh của doanh nghiệp có thể triển khai kiến trúc mạng LAN khác nhau tùy thuộc vào quy mô và mục đích sử dụng:
+\begin{itemize}
+    \item \textbf{Mạng Flat (Flat Network):} Tất cả các thiết bị nằm trên cùng một mặt phẳng Layer 2 (cùng một Broadcast Domain). Phù hợp với chi nhánh nhỏ lẻ.
+    \item \textbf{Mạng 3 lớp (Core - Distribution - Access):} Mô hình truyền thống chia làm 3 lớp phân cấp. Đảm bảo tính dự phòng, khả năng quản trị tốt cho các tòa nhà văn phòng lớn.
+    \item \textbf{Mạng Leaf-Spine:} Kiến trúc mạng 2 lớp hiện đại tối ưu hóa cho lưu lượng Đông-Tây (East-West) với băng thông lớn, thường được dùng trong các trung tâm dữ liệu (Data Center).
+\end{itemize}
