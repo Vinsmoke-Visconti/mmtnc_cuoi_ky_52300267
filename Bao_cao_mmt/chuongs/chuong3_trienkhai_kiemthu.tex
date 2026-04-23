@@ -1,49 +1,85 @@
 \section{TRIỂN KHAI VÀ KIỂM THỬ}
 
-\subsection{Môi trường mô phỏng Mininet}
-Đồ án được triển khai trên nền tảng Mininet Network Emulator. Khác với các công cụ như Packet Tracer hay GNS3, Mininet giả lập trực tiếp trên kernel của Linux. Các Switch được sử dụng là Open vSwitch (OVS) và các Router chạy nền tảng định tuyến mã nguồn mở FRRouting (FRR) để giả lập chân thực nhất giao thức OSPF và LDP.
+\subsection{Cấu trúc mã nguồn Mininet}
+Dự án được xây dựng hoàn toàn tự động bằng ngôn ngữ Python sử dụng thư viện Mininet. Các mô-đun chức năng được tách thành các tệp Script riêng biệt để dễ dàng quản lý và nâng cấp:
+\begin{itemize}
+    \item \texttt{main\_topology.py}: Script chính chịu trách nhiệm khởi tạo các Node mạng, thiết lập địa chỉ IP, cấu hình quy tắc NAT, ACL trên iptables và nạp tệp tin cấu hình OSPF cho các tiến trình \texttt{zebra} và \texttt{ospfd}.
+    \item \texttt{scripts/load\_balancer.py}: Trình nền phụ trách giám sát băng thông định kỳ trên máy chủ và cập nhật luật iptables khi có sự cố vượt tải. Tích hợp khả năng vẽ đồ thị bằng \texttt{matplotlib}.
+    \item \texttt{scripts/performance\_test.py}: Công cụ đo đạc hiệu suất (Throughput, Latency, NAT vs Non-NAT).
+    \item \texttt{scripts/nat\_acl\_test.py}: Công cụ quét tự động bảng định tuyến, bảng kiểm soát NAT/FORWARD và sinh ra nhật ký truy vết.
+    \item \texttt{scripts/generate\_report.py}: Script tổng hợp tự động, kết xuất toàn bộ log đo đạc thành dạng báo cáo Microsoft Excel cùng với các biểu đồ trực quan.
+\end{itemize}
 
-\subsection{Kiểm tra sự hội tụ định tuyến}
-Sau khi hệ thống khởi động, quá trình hội tụ định tuyến mất khoảng 30-40 giây. Các bảng định tuyến OSPF và LDP Neighborhood được thiết lập thành công.
+\subsection{Khởi chạy hệ thống mạng}
+Môi trường mạng được khởi tạo qua script tự động \texttt{run\_all.sh} chạy dưới quyền quản trị (root). Quá trình khởi động thực hiện xóa bỏ các tiến trình cũ, khởi tạo các công tắc (Switch) và thiết bị định tuyến ảo, gán địa chỉ IP và khởi động giao thức OSPF. 
 
-\begin{figure}[H]
-    \centering
-    % [NOTE] CHỤP ẢNH MÀN HÌNH MININET KHI CHẠY LỆNH SHOW IP ROUTE VÀ DÁN VÀO ĐÂY
-    % \includegraphics[width=0.8\textwidth]{image/routing_table.png}
-    \caption{Bảng định tuyến OSPF hội tụ thành công}
-    \label{fig:ospf_route}
-\end{figure}
-\textit{\textbf{Giải thích minh chứng:} Bảng định tuyến trên cho thấy các router biên (PE) đã học được toàn bộ các đường mạng của khách hàng thông qua OSPF (ký hiệu O). Điều này chứng minh cấu hình IGP đã hoạt động hoàn hảo và không xảy ra vòng lặp định tuyến.}
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Chụp màn hình Terminal khi vừa chạy lệnh `sudo python3 main_topology.py` và in ra "=== MANG DA SAN SANG ===" với các lệnh gợi ý kiểm tra.
+% Lưu ảnh vào thư mục image/ với tên startup.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.9\textwidth]{image/startup.png}
+%     \caption{Khởi chạy mô hình mạng trên môi trường Mininet}
+%     \label{fig:startup}
+% \end{figure}
 
-\subsection{Kiểm tra chuyển mạch nhãn bằng Traceroute}
-Để chứng minh hệ thống MPLS đang hoạt động thực sự, công cụ \texttt{traceroute} được sử dụng từ máy hA1 (Site A) đến máy hC1 (Site C).
+\subsection{Kiểm thử định tuyến OSPF}
+Tiến hành kiểm tra sự hội tụ của bảng định tuyến (Convergence) trên Router Core. Giao thức OSPF đã trao đổi đầy đủ trạng thái liên kết và hình thành bảng định tuyến động.
 
-\begin{figure}[H]
-    \centering
-    % [NOTE] CHỤP ẢNH MÀN HÌNH MININET KHI CHẠY LỆNH TRACEROUTE VÀ DÁN VÀO ĐÂY
-    % \includegraphics[width=0.8\textwidth]{image/traceroute_mpls.png}
-    \caption{Kết quả Traceroute hiển thị nhãn MPLS (Labels)}
-    \label{fig:traceroute}
-\end{figure}
-\textit{\textbf{Giải thích minh chứng:} Kết quả lệnh Traceroute giữa Site A và Site B cho thấy sự xuất hiện của nhãn MPLS tại các chặng trung gian (Hop 3, 4). Thời gian phản hồi ổn định ở mức ~26.8ms, khẳng định gói tin được chuyển mạch nhãn thành công xuyên qua Backbone.}
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Trong Mininet CLI, gõ lệnh `core vtysh --vty_socket /tmp/frr_core -c "show ip route"` và chụp màn hình kết quả hiển thị bảng định tuyến OSPF (các dòng có chữ O).
+% Lưu ảnh vào thư mục image/ với tên ospf_route.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.9\textwidth]{image/ospf_route.png}
+%     \caption{Bảng định tuyến OSPF trên Core Router}
+%     \label{fig:ospf_route}
+% \end{figure}
 
-Như hình trên, tại các hop trung gian qua mạng lõi, gói tin mang theo các nhãn (Labels) chứng tỏ quá trình Label Switching đã diễn ra chính xác theo cơ sở lý thuyết.
+\subsection{Kiểm thử các quy tắc NAT, PAT và ACL}
+Việc kiểm thử NAT và Firewall nhằm đảm bảo các luồng thông tin không hợp lệ đã bị từ chối và địa chỉ IP Public được ánh xạ đúng.
 
-\subsection{Đo lường hiệu năng tổng thể}
-Việc đo lường hiệu năng được tự động hóa thông qua kịch bản Python, sử dụng lệnh \texttt{ping} (để đo độ trễ) và \texttt{iperf} (để đo thông lượng và Jitter). Kết quả được xuất trực tiếp ra file Excel.
+\subsubsection{Kiểm tra NAT và PAT Overload}
+Từ máy tính \texttt{h1} ở mạng nội bộ, tiến hành ping vào Internet (\texttt{ext}) và ngược lại, gửi gói tin từ bên ngoài truy cập vào các máy chủ được cấu hình Static NAT.
+\begin{itemize}
+    \item \textbf{Inside ra Internet:} Khi \texttt{h1} truy cập Internet, hệ thống iptables thống kê có gói tin bị MASQUERADE (SNAT dịch nguồn thành \texttt{203.0.113.2}).
+    \item \textbf{External vào Static NAT:} Máy ảo \texttt{ext} tiến hành truy xuất \texttt{100.0.0.11:80}. Trạng thái bảng NAT Prerouting thể hiện lưu lượng đã được nhận diện và định hướng lại tới máy \texttt{10.10.10.11}.
+\end{itemize}
 
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|l|c|c|c|c|}
-    \hline
-    \rowcolor[HTML]{2C3E50} 
-    \color{white} \textbf{Hướng kết nối} & \color{white} \textbf{RTT Avg} & \color{white} \textbf{Throughput} & \color{white} \textbf{Loss} & \color{white} \textbf{Jitter} \\ \hline
-    Site A $\to$ Site B & 26.82 ms & 98.6 Mbps & 0\% & 0.022 ms \\ \hline
-    Site A $\to$ Site C & 26.91 ms & 102.0 Mbps & 0\% & 0.025 ms \\ \hline
-    Site B $\to$ Site C & 20.50 ms & 189.0 Mbps & 0\% & 0.018 ms \\ \hline
-    \end{tabular}
-    \caption{Bảng tổng hợp số liệu đo lường hiệu năng thực tế}
-    \label{tab:perf_data}
-\end{table}
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Trong Mininet CLI, gõ lệnh `fw iptables -t nat -L -n -v` và chụp màn hình kết quả hiển thị bảng dịch địa chỉ NAT.
+% Lưu ảnh vào thư mục image/ với tên nat_table.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.9\textwidth]{image/nat_table.png}
+%     \caption{Kiểm tra trạng thái bảng dịch NAT (iptables) trên Tường lửa}
+%     \label{fig:nat_table}
+% \end{figure}
 
-\textit{\textbf{Giải thích minh chứng:} Bảng \ref{tab:perf_data} tổng hợp các thông số đo được từ công cụ iPerf và Ping. Kết nối xuyên Backbone (A-B, A-C) đạt ngưỡng ~100Mbps đúng với thiết kế, trong khi kết nối nội bộ PE (B-C) đạt tới 189Mbps do không qua nút thắt mạng lõi.}
+\subsubsection{Kiểm tra độ tin cậy của ACL}
+Tiến hành việc xác thực các quy tắc chặn được đề ra tại chương 2. Máy ảo \texttt{h3} (thuộc subnet 192.168.20.0/24) không thể thiết lập kết nối SSH vào DMZ do lệnh Drop của ACL. Hơn thế, các nỗ lực truy cập vào các mạng LAN xuất phát từ vùng DMZ cũng hoàn toàn bị tường lửa khước từ.
+
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Trong Mininet CLI, gõ lệnh `fw iptables -L FORWARD -n -v` và chụp màn hình kết quả các quy tắc kiểm soát FORWARD, tập trung vào số lượng (pkts) bị DROP.
+% Lưu ảnh vào thư mục image/ với tên acl_test.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.9\textwidth]{image/acl_test.png}
+%     \caption{Kết quả bắt gói tin trên bộ quy tắc ACL (Forward Chain)}
+%     \label{fig:acl_test}
+% \end{figure}
+
+\subsection{Kiểm thử giải pháp Cân bằng tải dự phòng}
+Cân bằng tải dự phòng được thực thi và kiểm thử trực quan trên giao diện thông qua module \texttt{load\_balancer.py}. Hệ thống sử dụng \texttt{iPerf} làm công cụ bơm tải nhằm giả lập luồng truyền tin ồ ạt từ các Access Switch hướng vào Web Server 1. 
+
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Trong Mininet CLI, chạy lệnh `py exec(open("scripts/load_balancer.py").read() + "\ndemo_load_balance(net)", globals())`. Đợi đồ thị Matplotlib hiện ra (ảnh PNG). Chụp/lưu ảnh đồ thị này.
+% Lưu ảnh vào thư mục image/ với tên lb_chart.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{image/lb_chart.png}
+%     \caption{Đồ thị giám sát hoạt động hệ thống điều hướng và cân bằng tải tự động}
+%     \label{fig:lb_chart}
+% \end{figure}
+
+Khi dung lượng trên \texttt{web1} đạt đỉnh vượt mức ngưỡng quy định (80\%), script giám sát lập tức kích hoạt bộ định tuyến Tường lửa để ghi đè luật DNAT, buộc các yêu cầu mới hướng về Web Server 2. Quá trình này được ghi nhận ngay lập tức trên log tập trung, cho thấy việc xử lý gián đoạn và giảm tải tại máy chủ gốc đã hoàn thành mà người dùng bên ngoài không phát hiện ra sự thay đổi này.
