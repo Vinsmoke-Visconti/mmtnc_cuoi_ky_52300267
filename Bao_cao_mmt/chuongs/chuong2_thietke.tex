@@ -1,66 +1,79 @@
 \section{THIẾT KẾ HỆ THỐNG MẠNG}
 
-\subsection{Sơ đồ mạng tổng thể}
-Hệ thống mạng được thiết kế gồm một mạng lõi MPLS Backbone kết nối 3 chi nhánh với 3 kiến trúc LAN khác biệt.
+\subsection{Mô hình thiết kế tổng thể}
+Dựa trên yêu cầu của đề tài, mạng Campus 3 lớp được thiết kế trên môi trường Mininet với sự phân tách rõ ràng về mặt chức năng giữa các lớp Core, Distribution, Access và vùng an ninh DMZ. 
 
-\begin{figure}[H]
-    \centering
-    % [NOTE] COPY ẢNH VÀO THƯ MỤC image/ VÀ ĐỔI TÊN THÀNH network_topology.png
-    \includegraphics[width=1\textwidth]{image/network_topology.png}
-    \caption{Sơ đồ kiến trúc mạng Metro Ethernet MPLS tổng thể}
-    \label{fig:topology}
-\end{figure}
-\textit{\textbf{Giải thích minh chứng:} Hình \ref{fig:topology} minh họa toàn bộ hệ thống mạng được giả lập trên Mininet. Hình ảnh bao gồm bảng địa chỉ IP chi tiết và phần chú thích cách các luồng dữ liệu di chuyển từ LAN vào mạng lõi MPLS.}
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Chụp sơ đồ Topology đã được tạo bằng file draw_topology.py (nằm trong thư mục docs/network_topology.png).
+% Lưu ảnh vào thư mục image/ với tên topology.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=1\textwidth]{image/topology.png}
+%     \caption{Sơ đồ Topology mạng Campus 3 lớp và DMZ}
+%     \label{fig:topology}
+% \end{figure}
 
-\subsection{Quy hoạch thiết bị}
-Hệ thống sử dụng tổng cộng 11 Switch, 7 Router và 10 Host. Bảng dưới đây liệt kê vai trò của các thiết bị chính:
+Sơ đồ mô phỏng bao gồm:
+\begin{itemize}
+    \item \textbf{Khối Biên (Edge) và Tường lửa (Firewall):} Router \texttt{fw} đóng vai trò kết nối với mạng External (gia lập Internet) và kiểm soát an ninh mạng thông qua iptables.
+    \item \textbf{Vùng DMZ:} Gồm 1 switch (\texttt{s1}) và 2 máy chủ (\texttt{web1}, \texttt{web2}) chạy dịch vụ HTTP và iPerf.
+    \item \textbf{Lớp Core:} Router \texttt{core} là bộ định tuyến trung tâm kết nối Tường lửa với các khối Distribution.
+    \item \textbf{Lớp Distribution:} Bao gồm các Router \texttt{dist1} và \texttt{dist2}, phục vụ như Default Gateway cho các mạng LAN bên dưới.
+    \item \textbf{Lớp Access:} Bao gồm các Switch \texttt{s2}, \texttt{s3} kết nối trực tiếp các Host nội bộ (\texttt{h1}, \texttt{h2}, \texttt{h3}, \texttt{h4}).
+\end{itemize}
 
+\subsection{Thiết kế quy hoạch địa chỉ IP và Định tuyến}
+
+\subsubsection{Bảng quy hoạch IP}
+Địa chỉ IP được chia thành các phân đoạn mạng (Subnet) phù hợp với từng khu vực:
 \begin{table}[H]
     \centering
-    \begin{tabular}{|p{3cm}|p{3.5cm}|p{8cm}|}
+    \caption{Quy hoạch địa chỉ IP cho các phân đoạn mạng}
+    \begin{tabular}{|l|l|l|}
     \hline
-    \rowcolor[HTML]{2C3E50} 
-    \color{white} \textbf{Phân loại} & \color{white} \textbf{Tên thiết bị} & \color{white} \textbf{Chức năng} \\ \hline
-    \textbf{Core Router (P)} & P1, P2 & Router lõi của ISP, chịu trách nhiệm hoán đổi nhãn MPLS tốc độ cao. \\ \hline
-    \textbf{Edge Router (PE)} & PE1, PE2 & Router biên của ISP, nhận gói tin từ khách hàng, gán nhãn (Push) và đẩy vào MPLS Backbone. \\ \hline
-    \textbf{Customer Router (CE)} & CE1, CE2, CE3 & Router biên phía khách hàng, định tuyến gói tin từ LAN ra WAN. \\ \hline
-    \textbf{LAN Site A} & s1 (Flat) & Switch Layer 2 kết nối trực tiếp các Host. \\ \hline
-    \textbf{LAN Site B} & s2 (Core), s3-s4 (Dist), s5-s6 (Access) & Hệ thống Switch phân cấp 3 lớp có dự phòng. \\ \hline
-    \textbf{LAN Site C} & s7-s8 (Spine), s9-s11 (Leaf) & Mạng Leaf-Spine kết nối dạng lưới (Full Mesh). \\ \hline
+    \rowcolor[HTML]{EFEFEF} 
+    \textbf{Khu vực} & \textbf{Subnet} & \textbf{Ghi chú / Thiết bị} \\ \hline
+    Internet (External WAN) & 203.0.113.0/30 & ext=.1, fw=.2 \\ \hline
+    Kết nối Firewall - Core & 172.16.0.0/30 & fw=.1, core=.2 \\ \hline
+    Vùng DMZ & 10.10.10.0/24 & fw=.1, web1=.11, web2=.12 \\ \hline
+    Core - Dist1 & 172.16.1.0/30 & core=.1, dist1=.2 \\ \hline
+    Core - Dist2 & 172.16.2.0/30 & core=.1, dist2=.2 \\ \hline
+    LAN Access 1 & 192.168.10.0/24 & dist1=.1, h1=.11, h2=.12 \\ \hline
+    LAN Access 2 & 192.168.20.0/24 & dist2=.1, h3=.11, h4=.12 \\ \hline
     \end{tabular}
-    \caption{Bảng thống kê và chức năng thiết bị}
-    \label{tab:devices}
 \end{table}
 
-\subsection{Quy hoạch địa chỉ IP}
-Việc quy hoạch địa chỉ IP được chia thành không gian địa chỉ Public (dành cho MPLS Backbone) và Private (dành cho các LAN nội bộ).
+\subsubsection{Cấu hình định tuyến OSPF}
+Giao thức OSPF được cấu hình trên các Router \texttt{fw}, \texttt{core}, \texttt{dist1}, \texttt{dist2} chạy chung trên Area 0. Các nút sử dụng phần mềm định tuyến mã nguồn mở FRRouting (FRR) để mô phỏng Router thật.
+Mỗi Router được gán một Router-ID thông qua giao diện Loopback ảo: \texttt{10.255.1.10} cho \texttt{fw}, \texttt{10.255.1.1} cho \texttt{core}, \texttt{10.255.1.2} và \texttt{10.255.1.3} cho \texttt{dist1, dist2}.
 
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|p{3cm}|p{4cm}|p{7cm}|}
-    \hline
-    \rowcolor[HTML]{2C3E50} 
-    \color{white} \textbf{Phân vùng} & \color{white} \textbf{Subnet / Địa chỉ IP} & \color{white} \textbf{Ghi chú} \\ \hline
-    \textbf{Backbone Link} & 10.0.12.0/30, 10.0.13.0/30, 10.0.24.0/30 & Các liên kết Point-to-Point giữa P và PE. \\ \hline
-    \textbf{Loopback} & 10.255.0.x / 32 & Địa chỉ Loopback dùng cho OSPF Router-ID. \\ \hline
-    \textbf{WAN Link} & 172.16.x.0 / 30 & Đường truyền WAN nối từ CE đến PE. \\ \hline
-    \textbf{Site A (Flat)} & 192.168.10.0 / 24 & Mạng LAN nội bộ chi nhánh A. \\ \hline
-    \textbf{Site B (3-Tier)} & 192.168.20.0 / 24 & Mạng LAN nội bộ chi nhánh B. \\ \hline
-    \textbf{Site C (Leaf-Spine)}& 192.168.30.0 / 24 & Mạng LAN nội bộ chi nhánh C. \\ \hline
-    \end{tabular}
-    \caption{Bảng quy hoạch không gian địa chỉ IP}
-    \label{tab:ip}
-\end{table}
+\subsection{Thiết kế chính sách NAT và PAT}
+Tường lửa \texttt{fw} thực hiện chức năng biên dịch địa chỉ nhằm che giấu dải IP Private và cung cấp dịch vụ công cộng cho máy chủ nội bộ.
 
-\subsection{Cách thức vận hành và Định tuyến}
+\begin{itemize}
+    \item \textbf{PAT Overload (MASQUERADE):} Toàn bộ lưu lượng từ mạng \texttt{192.168.10.0/24} và \texttt{192.168.20.0/24} đi qua cổng \texttt{fw-eth0} ra Internet sẽ được biên dịch (MASQUERADE) sang địa chỉ Public của Firewall \texttt{203.0.113.2}.
+    \item \textbf{Static NAT:} Gán địa chỉ IP Public ảo (IP Alias) trên cổng WAN của Firewall để dịch tĩnh vào địa chỉ DMZ Private:
+    \begin{itemize}
+        \item \texttt{100.0.0.11} $\leftrightarrow$ \texttt{10.10.10.11} (\texttt{web1})
+        \item \texttt{100.0.0.12} $\leftrightarrow$ \texttt{10.10.10.12} (\texttt{web2})
+    \end{itemize}
+\end{itemize}
 
-\paragraph{1. Định tuyến nội bộ (IGP)}
-Mạng lõi sử dụng giao thức OSPF Area 0 để quảng bá các đường mạng giữa P1, P2, PE1, PE2. Các Router CE tại các chi nhánh được cấu hình Static Route mặc định trỏ thẳng về các PE tương ứng. Các Router PE thực hiện "Redistribute Static" để đưa các đường mạng nội bộ của khách hàng vào bảng định tuyến OSPF.
+\subsection{Thiết kế kiểm soát truy cập (ACL)}
+Bảo mật hệ thống được thiết kế theo chính sách "Default DROP" ở chuỗi FORWARD của Firewall \texttt{fw}. Chỉ những luồng dữ liệu hợp lệ mới được cấp phép:
 
-\paragraph{2. Quá trình chuyển mạch nhãn MPLS (Label Switching)}
-Giao thức LDP (Label Distribution Protocol) được kích hoạt trên tất cả cổng mạng lõi. LDP tự động gắn nhãn (Label) cho các mạng đích mà OSPF học được. Quá trình truyền dữ liệu từ Site A sang Site C diễn ra như sau:
 \begin{enumerate}
-    \item \textbf{Ingress (Vào mạng):} Gói tin từ CE1 đến PE1. PE1 nhận diện đích đến là Site C, liền tiến hành gắn nhãn MPLS (Push Label) cho gói tin và đẩy qua P1.
-    \item \textbf{Transit (Trung chuyển):} Khi P1 và P2 nhận được gói tin, chúng không đọc header IP lớp 3 mà chỉ đọc nhãn MPLS ở lớp 2.5, sau đó hoán đổi nhãn (Swap Label) và đẩy gói tin đi tiếp. Tốc độ xử lý ở giai đoạn này rất nhanh.
-    \item \textbf{Egress (Ra mạng):} Áp dụng cơ chế Penultimate Hop Popping (PHP), Router P2 (trước PE2 một bước nhảy) sẽ chủ động gỡ nhãn (Pop Label). Gói tin khi đến PE2 trở thành gói IP thuần túy, giúp PE2 giảm bớt gánh nặng xử lý trước khi đẩy về CE3 ở Site C.
+    \item \textbf{Cho phép kết nối đã thiết lập:} Duy trì các phiên làm việc (state ESTABLISHED, RELATED).
+    \item \textbf{Extended ACL:} Cho phép các dải mạng nội bộ (\texttt{192.168.10.0/24} và \texttt{192.168.20.0/24}) truy cập cổng HTTP(80) và HTTPS(443) trên máy chủ DMZ. Các truy cập khác bị cấm.
+    \item \textbf{Standard ACL chặn SSH:} Tường lửa chặn riêng rẽ các kết nối giao thức TCP cổng 22 xuất phát từ mạng \texttt{192.168.20.0/24} vào DMZ.
+    \item \textbf{Ngăn chặn rủi ro từ DMZ:} Luồng dữ liệu khởi tạo từ DMZ \texttt{10.10.10.0/24} đi vào các mạng nội bộ \texttt{192.168.0.0/16} hoàn toàn bị DROP để tránh DMZ trở thành bàn đạp tấn công (Pivot Attack).
+    \item \textbf{Cho phép External Ping và Web:} Người dùng từ mạng bên ngoài (\texttt{ext}) được phép truy cập cổng 80, 443 và ping (ICMP) đến IP Static NAT \texttt{10.10.10.0/24} trên DMZ.
 \end{enumerate}
+
+\subsection{Thuật toán Cân bằng tải tự động}
+Nhằm hạn chế tình trạng thắt nút cổ chai (Bottleneck) khi lưu lượng vào \texttt{web1} quá lớn, một script Python giám sát nền (\texttt{load\_balancer.py}) được tích hợp. Script hoạt động dựa trên các ngưỡng cấu hình:
+\begin{itemize}
+    \item \textbf{Trạng thái Normal (Bình thường):} \texttt{web1} chịu 100\% lưu lượng.
+    \item \textbf{Threshold 80\%:} Nếu script phát hiện băng thông tại \texttt{web1} vượt quá 80\% giới hạn, lập tức thực thi chuỗi lệnh iptables trên Tường lửa để \texttt{REDIRECT/DNAT} kết nối mới từ Internet sang IP \texttt{10.10.10.12} (\texttt{web2}).
+    \item \textbf{Threshold 20\%:} Khi tải tổng giảm về mức thấp, Tường lửa xóa quy tắc REDIRECT, đưa lưu lượng định tuyến trở lại \texttt{web1}.
+\end{itemize}

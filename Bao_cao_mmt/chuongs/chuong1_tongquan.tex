@@ -1,32 +1,47 @@
 \section{TỔNG QUAN VÀ CƠ SỞ LÝ THUYẾT}
 
-\subsection{Tổng quan về bài toán kết nối đa chi nhánh}
-Trong kỷ nguyên chuyển đổi số, nhu cầu kết nối dữ liệu giữa các chi nhánh của một doanh nghiệp ngày càng tăng cao cả về quy mô lẫn yêu cầu băng thông. Bài toán đặt ra là làm thế nào để liên kết các chi nhánh có khoảng cách xa về mặt địa lý thông qua một hạ tầng mạng dùng chung của nhà cung cấp dịch vụ (ISP), nhưng vẫn đảm bảo được hiệu năng, tính bảo mật và sự cô lập dữ liệu. Công nghệ Metro Ethernet kết hợp với MPLS đã trở thành tiêu chuẩn vàng để giải quyết vấn đề này.
-
-\subsection{Mạng Metro Ethernet và kiến trúc MAN}
-Metro Ethernet là mạng đô thị (MAN - Metropolitan Area Network) dựa trên tiêu chuẩn Ethernet. Nó cung cấp khả năng kết nối mạng LAN của các doanh nghiệp lại với nhau qua hạ tầng của ISP bằng các đường link Ethernet truyền thống thay vì các chuẩn viễn thông cũ như Frame Relay hay ATM. Ưu điểm của Metro Ethernet là tốc độ cao, dễ dàng mở rộng (scalability) và thân thiện với kiến trúc IP.
-
-\subsection{Tổng quan về MPLS (Multiprotocol Label Switching)}
-MPLS (Chuyển mạch nhãn đa giao thức) là một kỹ thuật định tuyến nằm giữa Layer 2 và Layer 3 trong mô hình OSI. Thay vì tra cứu bảng định tuyến IP ở mỗi hop (bước nhảy) như truyền thống, MPLS sử dụng các "Nhãn" (Label) ngắn độ dài cố định để quyết định đường đi của gói tin.
-
-\subsubsection{Ưu điểm của MPLS}
+\subsection{Tổng quan về hệ thống mạng Campus}
+Mô hình mạng Campus (Mạng khuôn viên) là một kiến trúc mạng được thiết kế phổ biến cho các tổ chức, doanh nghiệp, trường học có quy mô vừa và lớn. Kiến trúc này thường được chia thành 3 lớp (3-tier) bao gồm:
 \begin{itemize}
-    \item \textbf{Tốc độ chuyển mạch cao:} Router chỉ cần đọc nhãn ở phần mào đầu (header) mà không cần phân tích sâu vào gói tin IP.
-    \item \textbf{Lưu lượng kỹ thuật (Traffic Engineering):} Dễ dàng điều hướng lưu lượng tránh tắc nghẽn.
-    \item \textbf{Hỗ trợ VPN:} Tạo ra các đường hầm ảo (VPN) an toàn trên cùng một hạ tầng vật lý.
+    \item \textbf{Lớp Core (Lõi):} Là xương sống của mạng, chịu trách nhiệm định tuyến và chuyển tiếp dữ liệu tốc độ cao giữa các khu vực hoặc các thiết bị Distribution. Lớp Core yêu cầu tính sẵn sàng cao và khả năng chuyển mạch nhanh chóng.
+    \item \textbf{Lớp Distribution (Phân phối):} Đóng vai trò cầu nối giữa lớp Core và lớp Access. Đây là nơi thực hiện các chính sách định tuyến, lọc gói tin (ACL), tổng hợp các liên kết từ lớp Access và phân định các Broadcast Domain.
+    \item \textbf{Lớp Access (Truy cập):} Là lớp giao tiếp trực tiếp với người dùng cuối (End Hosts) như máy tính, máy in. Lớp Access cung cấp kết nối mạng và thường triển khai các cơ chế bảo mật cổng (Port Security) cơ bản.
+\end{itemize}
+Trong bài báo cáo này, một mô hình Campus 3 lớp tiêu chuẩn được thiết kế kết hợp với vùng DMZ để cung cấp dịch vụ công cộng an toàn.
+
+\subsection{Vùng phi quân sự (DMZ)}
+DMZ (Demilitarized Zone) là một vùng mạng con được phân lập về mặt logic, đóng vai trò như một vùng đệm giữa mạng nội bộ (Inside/LAN) và mạng công cộng (Internet). Các máy chủ cung cấp dịch vụ ra bên ngoài (như Web, Mail, DNS) được đặt trong vùng DMZ.
+\begin{itemize}
+    \item \textbf{Mục đích:} Bảo vệ mạng nội bộ khỏi các cuộc tấn công từ bên ngoài. Nếu máy chủ trong DMZ bị xâm nhập, kẻ tấn công cũng không thể dễ dàng truy cập vào các tài nguyên nhạy cảm bên trong LAN do chính sách tường lửa ngăn chặn các luồng dữ liệu khởi tạo từ DMZ vào Inside.
+    \item \textbf{Ứng dụng trong dự án:} Vùng DMZ chứa hai máy chủ Web (web1 và web2) phục vụ người dùng nội bộ và người dùng từ Internet thông qua Static NAT.
 \end{itemize}
 
-\subsection{Giao thức định tuyến OSPF và LDP}
-\subsubsection{OSPF (Open Shortest Path First)}
-OSPF là giao thức định tuyến động nội vùng (IGP) dựa trên trạng thái liên kết (Link-State). Trong đồ án này, OSPF được cấu hình ở Area 0 để giúp các Router lõi (P và PE) học được địa chỉ Loopback của nhau.
-
-\subsubsection{LDP (Label Distribution Protocol)}
-LDP là giao thức được sử dụng song song với OSPF để tự động phân phối nhãn cho các mạng đích đã học được. LDP sẽ gán nhãn cho các gói tin đi vào mạng lõi và chịu trách nhiệm hoán đổi nhãn dọc theo đường truyền.
-
-\subsection{Các kiến trúc mạng LAN nội bộ}
-Mỗi chi nhánh của doanh nghiệp có thể triển khai kiến trúc mạng LAN khác nhau tùy thuộc vào quy mô và mục đích sử dụng:
+\subsection{Network Address Translation (NAT) và Port Address Translation (PAT)}
 \begin{itemize}
-    \item \textbf{Mạng Flat (Flat Network):} Tất cả các thiết bị nằm trên cùng một mặt phẳng Layer 2 (cùng một Broadcast Domain). Phù hợp với chi nhánh nhỏ lẻ.
-    \item \textbf{Mạng 3 lớp (Core - Distribution - Access):} Mô hình truyền thống chia làm 3 lớp phân cấp. Đảm bảo tính dự phòng, khả năng quản trị tốt cho các tòa nhà văn phòng lớn.
-    \item \textbf{Mạng Leaf-Spine:} Kiến trúc mạng 2 lớp hiện đại tối ưu hóa cho lưu lượng Đông-Tây (East-West) với băng thông lớn, thường được dùng trong các trung tâm dữ liệu (Data Center).
+    \item \textbf{PAT Overload (NAT động nhiều-đến-một):} Kỹ thuật cho phép nhiều máy tính trong mạng nội bộ dùng chung một (hoặc một số ít) địa chỉ IP Public để truy cập Internet. Các kết nối được phân biệt dựa trên cổng (Port). Trong đồ án này, toàn bộ dải IP Private của lớp Access được NAT sang địa chỉ IP Public của cổng tường lửa kết nối với Internet.
+    \item \textbf{Static NAT (NAT tĩnh một-đến-một):} Ánh xạ cố định một địa chỉ IP Private với một địa chỉ IP Public. Kỹ thuật này thường được dùng cho các máy chủ cần cung cấp dịch vụ ra Internet. Web1 và Web2 trong đồ án được cấu hình Static NAT để người dùng bên ngoài có thể truy cập qua IP Public tương ứng.
+\end{itemize}
+
+\subsection{Access Control List (ACL) và Tường lửa (Firewall)}
+ACL là tập hợp các quy tắc kiểm soát luồng dữ liệu vào/ra các cổng của thiết bị định tuyến hoặc tường lửa dựa trên các thông tin ở lớp Network và Transport.
+\begin{itemize}
+    \item \textbf{Standard ACL:} Chỉ kiểm tra địa chỉ IP nguồn. Trong dự án, Standard ACL được dùng để chặn một Subnet nội bộ (192.168.20.0/24) không được truy cập dịch vụ SSH vào DMZ.
+    \item \textbf{Extended ACL:} Kiểm tra cả IP nguồn, IP đích, giao thức (TCP/UDP/ICMP) và số cổng. Trong dự án, Extended ACL chỉ cho phép lưu lượng HTTP (port 80) và HTTPS (port 443) từ LAN vào DMZ.
+    \item \textbf{Tường lửa (iptables):} Firewall được định nghĩa với chính sách mặc định (Default Policy) là DROP cho chuỗi FORWARD. Nghĩa là mọi gói tin đi qua Firewall đều bị hủy trừ khi có rule (quy tắc) cho phép rõ ràng. Điều này áp dụng nguyên tắc đặc quyền tối thiểu (Principle of Least Privilege).
+\end{itemize}
+
+\subsection{Giao thức định tuyến OSPF (Open Shortest Path First)}
+OSPF là giao thức định tuyến trạng thái liên kết (Link-State) hoạt động ở lớp Mạng, phân phối thông tin định tuyến giữa các Router trong cùng một vùng (Autonomous System).
+\begin{itemize}
+    \item \textbf{Cơ chế hoạt động:} Các Router OSPF trao đổi gói tin Hello để thiết lập quan hệ láng giềng, sau đó chia sẻ LSA (Link State Advertisement) để đồng bộ bảng cơ sở dữ liệu trạng thái liên kết (LSDB). Từ LSDB, mỗi Router chạy thuật toán Dijkstra (SPF) để tìm đường đi ngắn nhất đến các mạng đích.
+    \item \textbf{Triển khai:} Dự án sử dụng bộ công cụ FRRouting (FRR) để kích hoạt quá trình OSPF (zebra và ospfd) trên các nút Core, Distribution và Firewall.
+\end{itemize}
+
+\subsection{Cân bằng tải tự động (Load Balancing)}
+Cân bằng tải là quá trình phân phối lưu lượng mạng trên nhiều máy chủ để tối ưu hóa hiệu suất, giảm thiểu độ trễ và tránh quá tải cho một nút duy nhất.
+Trong báo cáo này, cân bằng tải được thiết kế tự động thông qua giám sát ngưỡng (Threshold-based Traffic Steering):
+\begin{itemize}
+    \item Hệ thống liên tục giám sát băng thông sử dụng của máy chủ chính (web1).
+    \item Nếu lưu lượng vượt ngưỡng cao (ví dụ: > 80\% băng thông tối đa), các yêu cầu kết nối mới sẽ tự động được điều hướng (NAT/REDIRECT) sang máy chủ dự phòng (web2).
+    \item Khi tải giảm xuống dưới ngưỡng an toàn (ví dụ: < 20\%), hệ thống sẽ điều hướng lưu lượng trở lại trạng thái ban đầu.
 \end{itemize}
