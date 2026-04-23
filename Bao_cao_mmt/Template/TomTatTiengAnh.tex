@@ -1,26 +1,26 @@
-\section*{\fontsize{16pt}{15pt}\selectfont DESIGN AND DEPLOYMENT OF METRO ETHERNET NETWORK USING MPLS \\ABSTRACT}
+\section*{\fontsize{16pt}{15pt}\selectfont MULTI-LAYER SECURITY OPTIMIZATION AND THRESHOLD-BASED LOAD BALANCING IN CAMPUS 3-TIER MODEL \\ABSTRACT}
 
 \begin{itemize}
     \item[-] \textbf{Research issues:}
     
-    This project focuses on simulating a Metro Ethernet MAN infrastructure using Multiprotocol Label Switching (MPLS) technology to connect multiple enterprise branches with different internal LAN architectures.
+    This project focuses on simulating a 3-tier Campus Network infrastructure (Core, Distribution, Access) integrating a Demilitarized Zone (DMZ). The core objective is to securely expose internal services to the outside world through Network Address Translation (NAT/PAT), Access Control Lists (ACL), and automated traffic steering (Load Balancing).
     
     The report includes 4 chapters:
         \begin{itemize}
         \item[•] Chapter 1 - Overview and Theoretical Basis
         \item[•] Chapter 2 - Network System Design
         \item[•] Chapter 3 - Deployment and Testing on Mininet
-        \item[•] Chapter 4 - Analysis, Comparison, and Conclusion
+        \item[•] Chapter 4 - Analysis and Conclusion
         \end{itemize}
     \item[-] \textbf{Approach:}
         \begin{itemize}
-        \item[•] \textit{Theory:} Researching Metro Ethernet standards, MPLS principles (Label Switching), OSPF and LDP routing protocols, and modern LAN architectures (Flat, 3-Tier, Leaf-Spine).
-        \item[•] \textit{Practice:} Using Mininet and FRRouting to deploy the MPLS Backbone and customer networks, with automated performance measurement using Python scripts.
+        \item[•] \textit{Theory:} Researching Campus 3-tier architecture, NAT/PAT principles, ACL structure, Linux Firewall (iptables), and OSPF routing protocol.
+        \item[•] \textit{Practice:} Using Mininet and FRRouting to deploy the enterprise network, with automated traffic steering, bandwidth monitoring, and performance measurement via Python scripts.
     \end{itemize}
     \item[-] \textbf{How to solve problems:}
-    Constructing a simulation including Core (P), Edge (PE), and Customer (CE) routers. Configuring OSPF for routing and LDP for label distribution. Implementing three distinct LAN architectures at branches for performance evaluation.
+    Constructing a simulation including Firewall, Core Router, Distribution, and Access Switches. Configuring OSPF for routing convergence. Implementing strict iptables rules to protect the DMZ and allow Internet access. Writing a Python script monitoring an 80\% bandwidth threshold to automatically reconfigure DNAT, steering traffic to a backup server.
     \item[-] \textbf{Results achieved:}
-    The system successfully converged and performed accurate label switching. Automated tests provided data on throughput, delay, and jitter. Results showed that MPLS enhances packet processing speed and ensures high stability for inter-branch connections.
+    The system successfully converged and performed accurate address translation. The load balancing script operated stably. Automated tests provided data on throughput and delay, proving the minor overhead impact of the Firewall compared to the security benefits gained.
 \end{itemize}
 
 \newpage
