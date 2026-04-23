@@ -402,16 +402,13 @@ def setup_services(net):
     info('\n*** Khoi dong HTTP services tren DMZ servers...\n')
     for srv in ['web1', 'web2']:
         node = net.get(srv)
-        # Tat tat ca process cu
-        node.cmd('pkill -f "python3 -m http.server" 2>/dev/null || true')
-        node.cmd('pkill -f "iperf -s" 2>/dev/null || true')
-        # Tao thu muc web
-        node.cmd('mkdir -p /tmp/www')
-        node.cmd(f'echo "<h1>Server {srv} - {node.IP()}</h1>" > /tmp/www/index.html')
+        # Tao thu muc web rieng cho tung server
+        node.cmd(f'mkdir -p /tmp/www_{srv}')
+        node.cmd(f'echo "<h1>Server {srv} - {node.IP()}</h1>" > /tmp/www_{srv}/index.html')
         # Khoi dong HTTP server tren port 80
-        node.cmd('cd /tmp/www && python3 -m http.server 80 > /tmp/http_%s.log 2>&1 &' % srv)
+        node.cmd(f'cd /tmp/www_{srv} && python3 -m http.server 80 > /tmp/http_{srv}.log 2>&1 &')
         # Khoi dong iperf server cho do luong
-        node.cmd('iperf -s -p 5201 > /tmp/iperf_%s.log 2>&1 &' % srv)
+        node.cmd(f'iperf -s -p 5201 > /tmp/iperf_{srv}.log 2>&1 &')
         info(f'  {srv} ({node.IP()}): HTTP:80 + iPerf:5201 running\n')
     time.sleep(1)
 

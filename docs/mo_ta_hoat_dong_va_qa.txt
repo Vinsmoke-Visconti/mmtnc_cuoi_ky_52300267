@@ -1,0 +1,166 @@
+=============================================================================
+TÀI LIỆU MÔ TẢ HOẠT ĐỘNG HỆ THỐNG VÀ 30 CÂU HỎI ĐÁP BẢO VỆ ĐỒ ÁN
+MÔN: MẠNG MÁY TÍNH NÂNG CAO
+=============================================================================
+
+PHẦN 1: MÔ TẢ CHI TIẾT CÁCH HOẠT ĐỘNG CỦA SƠ ĐỒ MẠNG
+-----------------------------------------------------------------------------
+Mô hình mạng trong đồ án là kiến trúc Campus 3-Tier (3 lớp: Core, Distribution, Access) có tích hợp vùng phi quân sự (DMZ) và kết nối Internet.
+
+1. Lớp Access (Truy cập - s2, s3):
+   - Chịu trách nhiệm kết nối trực tiếp các thiết bị đầu cuối (h1, h2, h3, h4).
+   - Switch hoạt động ở chế độ Layer 2 đơn thuần, không chạy Spanning Tree (do không có cấu trúc vòng lặp).
+
+2. Lớp Distribution (Phân phối - dist1, dist2):
+   - Đóng vai trò là Default Gateway cho các mạng nội bộ (192.168.10.0/24 và 192.168.20.0/24).
+   - Có trách nhiệm thu thập lưu lượng từ lớp Access và định tuyến lên lớp Core. Nó chạy OSPF để quảng bá các mạng nội bộ.
+
+3. Lớp Core (Lõi - core):
+   - Là xương sống tốc độ cao của mạng, kết nối các router Distribution và Tường lửa (Firewall).
+   - Tối ưu hóa việc chuyển tiếp gói tin, không cấu hình ACL hay NAT tại đây để đảm bảo tốc độ xử lý nhanh nhất.
+
+4. Tường lửa và Biên mạng (fw):
+   - Đứng giữa mạng nội bộ, vùng DMZ và mạng External (Internet).
+   - Thực thi các bộ quy tắc Access Control List (ACL) để chặn/cho phép luồng dữ liệu (ví dụ: cấm DMZ truy cập Inside).
+   - Đóng vai trò thực hiện Biên dịch địa chỉ (NAT/PAT) để cho phép mạng Inside ra Internet và cho phép Internet vào DMZ (Static NAT).
+
+5. Vùng DMZ (s1, web1, web2):
+   - Vùng đệm chứa các máy chủ cung cấp dịch vụ public. Tách biệt hoàn toàn với mạng Inside để đảm bảo bảo mật.
+
+6. Cơ chế Cân bằng tải (Load Balancing):
+   - Một tiến trình chạy ngầm (load_balancer.py) liên tục kiểm tra băng thông của web1.
+   - Nếu phát hiện web1 dùng quá 80% công suất, Firewall sẽ tự động chèn thêm quy tắc chuyển hướng (REDIRECT/DNAT) các luồng truy cập mới từ Internet sang IP của web2.
+   - Khi tải giảm xuống dưới 20%, hệ thống xóa quy tắc đó và trở về trạng thái bình thường.
+
+
+PHẦN 2: CÁCH GÓI TIN ĐƯỢC TRUYỀN ĐI TRONG MẠNG
+-----------------------------------------------------------------------------
+Kịch bản 1: Máy h1 (Inside) truy cập Internet (ext)
+1. h1 (192.168.10.11) gửi gói tin ICMP tới ext (203.0.113.1).
+2. Gói tin đi đến Default Gateway là dist1 (192.168.10.1).
+3. dist1 tra bảng định tuyến OSPF, đẩy gói tin lên core (172.16.1.1).
+4. core tra bảng định tuyến, đẩy gói tin lên fw (172.16.0.1).
+5. fw nhận gói tin. Nó kiểm tra chuỗi FORWARD của iptables, thấy hợp lệ.
+6. Khi gói tin rời khỏi cổng fw-eth0 (đi ra Internet), fw thực hiện PAT (MASQUERADE). Địa chỉ nguồn 192.168.10.11 bị dịch thành IP Public của Firewall là 203.0.113.2.
+7. ext nhận gói tin từ 203.0.113.2 và phản hồi lại.
+8. fw nhận gói tin phản hồi, tra bảng trạng thái NAT, dịch IP đích 203.0.113.2 ngược lại thành 192.168.10.11 và đẩy trả về qua core -> dist1 -> h1.
+
+Kịch bản 2: Internet (ext) truy cập Web1 (DMZ) qua Static NAT
+1. ext (203.0.113.1) gửi HTTP Request đến IP Public ảo là 100.0.0.11.
+2. Gói tin đến fw qua cổng fw-eth0. 
+3. Tại chuỗi PREROUTING, fw thấy rule DNAT: đổi đích 100.0.0.11 thành 10.10.10.11 (IP thật của web1).
+4. Tường lửa kiểm tra ACL ở chuỗi FORWARD, xác nhận cổng 80 hợp lệ -> Cho qua.
+5. Gói tin đến web1 (10.10.10.11).
+6. web1 phản hồi lại ext (203.0.113.1).
+7. Gói tin qua fw, tại chuỗi POSTROUTING, fw thực hiện SNAT: đổi nguồn 10.10.10.11 trở lại thành IP Public 100.0.0.11.
+8. ext nhận được phản hồi chính xác từ 100.0.0.11.
+
+Kịch bản 3: Tấn công từ DMZ vào Inside (bị chặn)
+1. web1 bị hacker chiếm quyền, cố gắng gửi gói tin Ping/SSH vào h1 (192.168.10.11).
+2. Gói tin từ web1 đến fw.
+3. fw kiểm tra chuỗi FORWARD, gặp quy tắc: "DROP all from 10.10.10.0/24 to 192.168.0.0/16".
+4. Gói tin bị Firewall vứt bỏ lập tức. Mạng Inside được bảo vệ an toàn.
+
+
+PHẦN 3: 30 CÂU HỎI VÀ TRẢ LỜI ĐÁP BIỆN (Q&A)
+-----------------------------------------------------------------------------
+Dưới đây là các câu hỏi mà giảng viên thường hỏi để xoáy sâu vào đồ án của bạn, từ lý thuyết mạng đến thực hành trên Mininet.
+
+[NHÓM 1: MÔ HÌNH VÀ KIẾN TRÚC MẠNG]
+1. Tại sao phải thiết kế mạng Campus theo 3 lớp mà không dùng mạng phẳng (Flat Network)?
+-> Trả lời: Mạng phẳng dễ gây ra Broadcast Storm, khó quản lý và bảo mật. Mô hình 3 lớp (Core, Dist, Access) giúp phân tách rõ chức năng: Access cho kết nối thiết bị, Dist cho định tuyến/chính sách và phân chia Broadcast domain, Core cho chuyển mạch tốc độ cao. Dễ dàng mở rộng và chịu lỗi tốt.
+
+2. Vùng DMZ là gì và tại sao Web Server không đặt luôn ở mạng Inside?
+-> Trả lời: DMZ là vùng mạng phi quân sự đóng vai trò vùng đệm giữa Internet và mạng nội bộ. Đặt Web Server ra DMZ giúp nếu hacker chiếm được Web Server, chúng vẫn bị Firewall chặn lại, không thể pivot (chuyển hướng tấn công) vào mạng LAN nội bộ, bảo vệ tài nguyên nhạy cảm.
+
+3. Switch trong Mininet bạn tạo ra là Layer 2 hay Layer 3? Tại sao?
+-> Trả lời: Các switch s1, s2, s3 là switch OVS Layer 2. Việc định tuyến (Layer 3) do các thiết bị fw, core, dist đảm nhận.
+
+4. Tại sao bạn tắt Spanning Tree Protocol (STP) trên các switch của bạn?
+-> Trả lời: Trong sơ đồ hiện tại không có thiết kế các đường link vật lý song song (redundant links) tạo thành vòng lặp (loop) ở Layer 2. Do đó tắt STP giúp mạng khởi động nhanh hơn, loại bỏ thời gian chờ trạng thái Listening/Learning của STP.
+
+5. Router trong Mininet thực chất là gì? Bạn đã phải cấu hình lệnh gì để nó hoạt động như Router?
+-> Trả lời: Router trong Mininet thực chất là một Host Linux chạy Ubuntu. Để nó định tuyến được, em phải tạo class LinuxRouter và kích hoạt "sysctl -w net.ipv4.ip_forward=1".
+
+[NHÓM 2: NAT VÀ PAT]
+6. Có bao nhiêu loại NAT được cấu hình trong đồ án này?
+-> Trả lời: Có 2 loại. PAT Overload (MASQUERADE) dùng cho mạng Inside truy cập Internet. Và Static NAT dùng để ánh xạ cố định 1 IP Public (100.0.0.x) với 1 IP Private trong DMZ (10.10.10.x).
+
+7. Bạn thực hiện NAT/PAT trên thiết bị nào? Tại sao không thực hiện trên Core?
+-> Trả lời: Thực hiện trên fw-router (Firewall). Tường lửa nằm ở vị trí biên mạng (Edge), tiếp xúc trực tiếp với Internet nên thực hiện chuyển đổi địa chỉ ở đây là hợp lý nhất. Core router chỉ làm nhiệm vụ chuyển tiếp dữ liệu nhanh chóng bên trong.
+
+8. Tại sao khi host truy cập Internet phải dùng PAT Overload (MASQUERADE) mà không dùng Static NAT?
+-> Trả lời: Dải IP Inside có rất nhiều máy, nếu dùng Static NAT thì cứ 1 máy cần 1 IP Public, rất lãng phí và không khả thi. PAT Overload dịch toàn bộ dải IP Private ra chung 1 IP Public, dùng các port khác nhau để phân biệt các kết nối.
+
+9. Lệnh MASQUERADE và SNAT trong iptables khác nhau chỗ nào?
+-> Trả lời: MASQUERADE là dạng SNAT đặc biệt, dùng khi IP của cổng ra là IP động (thường xuyên thay đổi). SNAT tiêu chuẩn dùng khi bạn có một địa chỉ IP Public tĩnh cụ thể.
+
+10. Static NAT cho máy chủ DMZ gồm bao nhiêu chiều dịch địa chỉ?
+-> Trả lời: Gồm 2 chiều: Chiều vào (PREROUTING) dùng DNAT để đổi IP đích từ Public sang Private. Chiều ra (POSTROUTING) dùng SNAT để đổi IP nguồn từ Private trả lại thành Public để gửi cho client.
+
+[NHÓM 3: FIREWALL VÀ ACL]
+11. iptables trong Linux hoạt động theo cơ chế nào?
+-> Trả lời: iptables hoạt động dựa trên các bảng (Tables) như filter, nat, mangle. Trong mỗi bảng chứa các chuỗi (Chains) như INPUT, OUTPUT, FORWARD, PREROUTING, POSTROUTING để xử lý gói tin tương ứng.
+
+12. Tại sao policy mặc định của bảng filter chuỗi FORWARD lại là DROP?
+-> Trả lời: Để áp dụng nguyên tắc "Đặc quyền tối thiểu" (Zero Trust). Mọi luồng dữ liệu đều bị từ chối trừ khi em khai báo Rule (quy tắc) cho phép. Cách này bảo mật hơn là ACCEPT mặc định rồi chỉ chặn các luồng cấm.
+
+13. Tại sao trong Firewall lại cần quy tắc "m --state ESTABLISHED,RELATED -j ACCEPT"?
+-> Trả lời: Đây là tính năng Firewall Stateful (theo dõi trạng thái). Nó cho phép các gói tin thuộc các phiên kết nối đã được thiết lập thành công trước đó tiếp tục được truyền qua mà không cần kiểm tra lại toàn bộ từ đầu, tiết kiệm tài nguyên và đảm bảo kết nối hai chiều.
+
+14. Làm thế nào bạn chặn mạng 192.168.20.0/24 truy cập SSH vào DMZ?
+-> Trả lời: Sử dụng Standard/Extended ACL bằng iptables:
+"iptables -A FORWARD -s 192.168.20.0/24 -d 10.10.10.0/24 -p tcp --dport 22 -j DROP"
+
+15. Firewall của bạn có chặn DMZ truy cập Inside không?
+-> Trả lời: Có. Em thêm quy tắc DROP toàn bộ lưu lượng có Source là DMZ và Destination là các subnet 192.168.x.x của Inside. Do policy mặc định là DROP nên việc không viết rule ACCEPT cho hướng này cũng đồng nghĩa là đã chặn.
+
+[NHÓM 4: ĐỊNH TUYẾN OSPF]
+16. OSPF hoạt động dựa trên thuật toán gì?
+-> Trả lời: OSPF hoạt động dựa trên thuật toán Dijkstra, còn gọi là thuật toán Shortest Path First (SPF) để tìm đường đi ngắn nhất đến các mạng.
+
+17. Tại sao lại dùng bộ công cụ FRRouting thay vì Zebra/Quagga cũ?
+-> Trả lời: FRR là bản nâng cấp hiện đại hơn của Quagga, hiệu năng cao hơn, hỗ trợ nhiều tính năng mới và tương thích tốt hơn với kiến trúc mạng SDN và môi trường ảo hóa.
+
+18. Địa chỉ Loopback (ví dụ 10.255.1.1) cấu hình trên Router dùng để làm gì?
+-> Trả lời: Dùng làm Router-ID cho quá trình bầu chọn OSPF. Địa chỉ Loopback là interface ảo không bao giờ bị down (trừ khi thiết bị sập hoàn toàn), giúp OSPF hoạt động cực kỳ ổn định.
+
+19. Việc hội tụ (Convergence) trong OSPF nghĩa là gì?
+-> Trả lời: Hội tụ là quá trình tất cả các router trong cùng một vùng (Area) trao đổi thông tin cấu trúc mạng (LSA) và đạt được sự đồng nhất hoàn toàn về cơ sở dữ liệu định tuyến (LSDB). Trạng thái cuối cùng là "Full".
+
+20. Nếu một đường link giữa Core và Dist1 đứt, OSPF sẽ làm gì?
+-> Trả lời: OSPF sẽ gửi các gói tin LSA update để thông báo sự cố cho các router khác. Thuật toán Dijkstra sẽ chạy lại để tìm đường đi dự phòng qua các node khác nếu có thiết kế đường dự phòng (redundancy).
+
+[NHÓM 5: LOAD BALANCING (CÂN BẰNG TẢI)]
+21. Thuật toán cân bằng tải bạn dùng trong hệ thống tên là gì?
+-> Trả lời: Em dùng thuật toán cân bằng tải "Dựa trên ngưỡng" (Threshold-based) và "Traffic Steering" (chuyển hướng động). Nó không chia tải Round-Robin 50-50, mà chỉ điều hướng khi Server 1 vượt quá giới hạn tài nguyên cấu hình.
+
+22. Hệ thống lấy thông số băng thông từ đâu để nhận biết quá tải?
+-> Trả lời: Tập lệnh Python sử dụng lệnh theo dõi hệ thống (đọc file /proc/net/dev hoặc thông qua iptables stats) trên interface của mạng hướng về DMZ để tính toán số Byte nhận/gửi mỗi chu kỳ 2 giây.
+
+23. Làm sao Tường lửa có thể chuyển hướng kết nối từ Web1 sang Web2?
+-> Trả lời: Thông qua lệnh gọi hệ thống. Python Script sẽ tiêm (inject) một quy tắc DNAT (Destination NAT) mới vào chuỗi PREROUTING của iptables. Quy tắc này dịch địa chỉ IP tới 10.10.10.12 (web2) thay vì 10.10.10.11 (web1).
+
+24. Khi tải trên web1 giảm, hệ thống xử lý như thế nào?
+-> Trả lời: Script theo dõi nếu lưu lượng giảm xuống dưới mức ngưỡng dưới (ví dụ 20%), nó sẽ xóa bỏ quy tắc DNAT đã chèn vào iptables, hệ thống trở về trạng thái bình thường (web1 lại nhận yêu cầu).
+
+25. Cân bằng tải qua iptables (Layer 4) khác gì cân bằng tải bằng NGINX/HAProxy (Layer 7)?
+-> Trả lời: iptables xử lý gói tin ở tầng Mạng và Giao vận (Layer 3/4) nên tốc độ rất nhanh, không cần mở/đọc nội dung gói tin HTTP. HAProxy/NGINX hoạt động ở Layer 7, hiểu được URL/Header, cân bằng tải thông minh hơn nhưng tốn tài nguyên xử lý hơn.
+
+[NHÓM 6: ĐÁNH GIÁ HIỆU NĂNG VÀ THỰC HÀNH]
+26. Để đo thông lượng (Throughput) giữa 2 máy, bạn dùng công cụ gì?
+-> Trả lời: Em dùng iPerf3. iPerf3 sử dụng kiến trúc Client-Server, gửi một lượng lớn gói tin TCP/UDP trong một khoảng thời gian để đo tốc độ mạng khả dụng.
+
+27. Khi đo đạc độ trễ giữa kết nối có NAT và không có NAT, bạn kết luận gì?
+-> Trả lời: Kết nối đi qua tường lửa (có NAT) luôn có độ trễ lớn hơn một chút (tăng NAT Overhead). Do Firewall phải bắt gói tin, tìm kiếm trong bảng rule, tính toán check-sum lại và cập nhật Connection Tracking Table. Dù vậy sự khác biệt tính bằng ms nên không đáng kể so với an ninh mạng.
+
+28. Tại sao khi ping gói tin đầu tiên giữa các máy thường mất nhiều thời gian hơn các gói sau?
+-> Trả lời: Do quá trình phân giải ARP. Máy tính chưa có địa chỉ MAC của đích, nó phải gửi bản tin ARP Request dạng Broadcast, đợi ARP Reply, điền vào ARP Cache rồi mới bắt đầu gửi gói tin ICMP Ping.
+
+29. File Excel báo cáo được sinh ra như thế nào?
+-> Trả lời: Các đoạn mã Python sau khi đo đạc (ping, iperf) sẽ lưu kết quả vào file dạng JSON. Cuối cùng, script generate_report.py đọc file JSON này, dùng thư viện openpyxl xuất ra file Excel và matplotlib để dán thẳng biểu đồ vào báo cáo.
+
+30. Giả sử sau này hệ thống mở rộng thêm 10 Switch Access, bạn cần làm gì?
+-> Trả lời: Chỉ cần đấu nối các Switch Access mới vào lớp Distribution. Đặt IP, sau đó thêm cấu hình quảng bá mạng (network statement) vào cấu hình OSPF trên router Distribution. OSPF sẽ tự động tìm thấy các mạng mới và quảng bá đi toàn hệ thống, không cần cấu hình định tuyến tĩnh thủ công trên Core hay Firewall.
+
+=========================== HẾT ==============================================

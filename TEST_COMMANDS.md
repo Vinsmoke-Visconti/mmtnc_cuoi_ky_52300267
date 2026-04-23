@@ -41,17 +41,17 @@ mininet> fw iptables -t nat -L -n -v --line-numbers
 mininet> fw iptables -L FORWARD -n -v --line-numbers
 
 # Test NAT/ACL tu dong
-mininet> py exec(open('scripts/nat_acl_test.py').read(), globals()); run_nat_acl_test(net)
+mininet> py exec(open('scripts/nat_acl_test.py').read() + "\nrun_nat_acl_test(net)", globals())
 ```
 
 ## Do hieu nang
 ```
-mininet> py exec(open('scripts/performance_test.py').read(), globals()); full_test(net)
+mininet> py exec(open('scripts/performance_test.py').read() + "\nfull_test(net)", globals())
 ```
 
 ## Can bang tai
 ```
-mininet> py exec(open('scripts/load_balancer.py').read(), globals()); demo_load_balance(net)
+mininet> py exec(open('scripts/load_balancer.py').read() + "\ndemo_load_balance(net)", globals())
 ```
 
 ## Kiem tra OSPF (neu FRR da cai)
