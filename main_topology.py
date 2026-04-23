@@ -457,14 +457,30 @@ def run():
     info('  fw vtysh --vty_socket /tmp/frr_fw -c "show ip ospf neighbor"\n')
     info('  core vtysh --vty_socket /tmp/frr_core -c "show ip route"\n')
     info('\n--- Can bang tai ---\n')
-    info('  py import scripts.load_balancer as lb; lb.demo_load_balance(net)\n')
+    info('  mininet> test_lb\n')
     info('\n--- Do hieu nang ---\n')
-    info('  py import scripts.performance_test as pt; pt.full_test(net)\n')
+    info('  mininet> test_perf\n')
     info('\n--- Kiem tra NAT/ACL ---\n')
-    info('  py import scripts.nat_acl_test as nat; nat.run_nat_acl_test(net)\n')
+    info('  mininet> test_nat\n')
     info('\nGo "exit" de thoat.\n\n')
 
-    CLI(net)
+    class MyCLI(CLI):
+        def do_test_nat(self, line):
+            """Chay test NAT va ACL"""
+            import scripts.nat_acl_test as nat
+            nat.run_nat_acl_test(self.mn)
+            
+        def do_test_perf(self, line):
+            """Chay do luong hieu nang"""
+            import scripts.performance_test as pt
+            pt.full_test(self.mn)
+            
+        def do_test_lb(self, line):
+            """Chay test Can bang tai"""
+            import scripts.load_balancer as lb
+            lb.demo_load_balance(self.mn)
+
+    MyCLI(net)
 
     info('\n*** Don dep...\n')
     os.system('killall -9 zebra ospfd 2>/dev/null || true')

@@ -41,17 +41,17 @@ mininet> fw iptables -t nat -L -n -v --line-numbers
 mininet> fw iptables -L FORWARD -n -v --line-numbers
 
 # Test NAT/ACL tu dong
-mininet> py import scripts.nat_acl_test as nat; nat.run_nat_acl_test(net)
+mininet> test_nat
 ```
 
 ## Do hieu nang
 ```
-mininet> py import scripts.performance_test as pt; pt.full_test(net)
+mininet> test_perf
 ```
 
 ## Can bang tai
 ```
-mininet> py import scripts.load_balancer as lb; lb.demo_load_balance(net)
+mininet> test_lb
 ```
 
 ## Kiem tra OSPF (neu FRR da cai)
