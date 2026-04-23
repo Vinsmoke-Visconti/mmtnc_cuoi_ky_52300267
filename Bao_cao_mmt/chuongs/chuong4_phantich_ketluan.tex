@@ -1,47 +1,35 @@
-\section{PHÂN TÍCH, SO SÁNH VÀ KẾT LUẬN}
+\section{PHÂN TÍCH VÀ KẾT LUẬN}
 
-\subsection{Phân tích ảnh hưởng của kiến trúc LAN}
-Dựa trên kết quả đo lường từ chương trước, ta có thể đánh giá sơ bộ ưu và nhược điểm của từng kiến trúc LAN khi truyền tải dữ liệu qua môi trường Metro Ethernet:
+\subsection{Phân tích độ trễ và khả năng thông lượng (Throughput)}
+Thông qua công cụ \texttt{performance\_test.py}, lưu lượng trao đổi trên hệ thống được đo đạc lặp lại ở hai phân vùng chính: Mạng cục bộ không qua Tường lửa (Inside-to-Inside) và Mạng kết nối biên vượt qua Tường lửa (Inside-to-DMZ, External-to-DMZ). Mọi kết quả sau khi thu thập được tự động kết xuất ra một tệp báo cáo Excel, có đính kèm biểu đồ Matplotlib thông qua thư viện \texttt{openpyxl}.
 
-\subsubsection{Mạng Flat (Site A)}
+% CHỤP ẢNH MINH CHỨNG:
+% Yêu cầu: Mở file báo cáo Excel (ví dụ: results/mmtnc_report_20260423_214502.xlsx), mở Sheet "Throughput", chụp màn hình nội dung Sheet này (cả bảng số liệu và biểu đồ).
+% Lưu ảnh vào thư mục image/ với tên report_excel.png và bỏ comment đoạn code bên dưới để hiển thị ảnh.
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=0.9\textwidth]{image/report_excel.png}
+%     \caption{Kết xuất báo cáo đo lường thông lượng qua tệp Excel tự động}
+%     \label{fig:report_excel}
+% \end{figure}
+
+Dữ liệu cho thấy:
 \begin{itemize}
-    \item \textbf{Ưu điểm:} Cấu trúc đơn giản, độ trễ xử lý nội bộ (Switching Delay) cực thấp do dữ liệu đi thẳng không qua nhiều lớp thiết bị.
-    \item \textbf{Nhược điểm:} Thiếu khả năng mở rộng, nếu Broadcast Domain lớn sẽ gây Broadcast Storm làm sụt giảm băng thông. Thích hợp cho chi nhánh nhỏ.
+    \item \textbf{Độ trễ trung bình (RTT Latency):} Luồng dữ liệu đi qua biên mạng (phải xử lý chuyển đổi địa chỉ NAT, và lọc qua ACL) có độ trễ lớn hơn khi so sánh với định tuyến tĩnh trực tiếp trong lớp nội bộ. Nguyên nhân xuất phát từ chi phí trích xuất gói tin của Tường lửa.
+    \item \textbf{Thông lượng truyền tải TCP:} Lượng băng thông cao nhất đo được qua iPerf cho thấy lớp Distribution và Core hoạt động hiệu quả đạt được tốc độ cận tối đa do cấu hình đường truyền gigabit ảo. 
 \end{itemize}
 
-\subsubsection{Mạng 3 lớp (Site B)}
-\begin{itemize}
-    \item \textbf{Ưu điểm:} Khả năng phân luồng tốt, dễ quản lý, có tính sẵn sàng cao (High Availability) nhờ các liên kết dự phòng.
-    \item \textbf{Nhược điểm:} Độ trễ cao hơn mạng Flat do gói tin phải đi qua nhiều lớp Switch (Access $\rightarrow$ Distribution $\rightarrow$ Core). STP (Spanning Tree Protocol) có thể khóa một số port làm lãng phí băng thông dự phòng.
-\end{itemize}
+\subsection{Đánh giá tác động của tiến trình xử lý NAT (NAT Overhead)}
+Hệ thống tiến hành thực hiện một bài toán so sánh độ trễ truyền gói tin giữa kịch bản máy tính có khả năng ping trực tiếp mạng ngoài (Route thuần túy) với kịch bản máy tính bị thay đổi cấu trúc gói tin (MASQUERADE).
+Qua tập dữ liệu \texttt{NAT\_Overhead} trên báo cáo tự động, ta nhận thấy việc bổ sung NAT làm tăng thời gian RTT (Round Trip Time). Do chi phí phải tra cứu bảng trạng thái (Connection Tracking) của iptables, hiệu năng định tuyến giảm tương đối. Tuy nhiên, mức độ trễ (delay) rơi vào vài phần ngàn giây (milliseconds), hoàn toàn ở mức chấp nhận được để đánh đổi lại lớp rào cản phòng vệ kiên cố cũng như tiết kiệm IP Public.
 
-\subsubsection{Mạng Leaf-Spine (Site C)}
-\begin{itemize}
-    \item \textbf{Ưu điểm:} Băng thông cực lớn, độ trễ ổn định và có thể dự đoán được (tất cả các Leaf cách nhau đúng một hop qua Spine). Tuyệt vời cho lưu lượng tải nặng ngang (East-West traffic).
-    \item \textbf{Nhược điểm:} Yêu cầu cấu hình phức tạp, tiêu tốn nhiều dây cáp quang và port giao tiếp hơn so với mạng 3 lớp truyền thống.
-\end{itemize}
+\subsection{Kết luận}
+Thông qua việc vận dụng các cấu trúc định tuyến tĩnh và động trong môi trường Mininet kết hợp FRRouting, đồ án đã triển khai thành công một mô hình \textbf{Campus 3-tier tích hợp DMZ}. Việc quy hoạch địa chỉ rõ ràng kết hợp cùng các giao thức tự động hóa đã đáp ứng xuất sắc các mục tiêu sau:
+\begin{enumerate}
+    \item Tách biệt vùng mạng nhạy cảm (Inside) với vùng dịch vụ kết nối ngoài (DMZ).
+    \item Sử dụng iptables (Tường lửa) để bảo vệ toàn diện ứng dụng dịch vụ trên máy chủ (qua cơ chế ACL và NAT) song song với quản trị nguồn IP (PAT).
+    \item Áp dụng thành công tiến trình OSPF giúp hệ thống dễ dàng mở rộng và định tuyến chính xác.
+    \item Tính năng định tuyến tự động khi xảy ra tắc nghẽn (Cân bằng tải theo ngưỡng) góp phần hiện thực hoá nguyên lý sẵn sàng và giảm thiểu thời gian chết của dịch vụ (Downtime).
+\end{enumerate}
 
-\subsection{Biểu đồ so sánh hiệu năng (Mô phỏng)}
-Dưới đây là biểu đồ so sánh độ trễ (RTT) và Băng thông (Throughput) giữa các cặp liên kết.
-
-\begin{figure}[H]
-    \centering
-    % [NOTE] SAU KHI VẼ BIỂU ĐỒ BẰNG EXCEL TỪ FILE KẾT QUẢ, HÃY LƯU THÀNH ẢNH VÀ DÁN VÀO ĐÂY
-    % \includegraphics[width=0.8\textwidth]{image/chart_delay.png}
-    \caption{Biểu đồ so sánh Độ trễ (RTT) giữa các chi nhánh}
-    \label{fig:chart_delay}
-\end{figure}
-\textit{\textbf{Giải thích minh chứng:} Biểu đồ \ref{fig:chart_delay} so sánh độ trễ khứ hồi trung bình. Kết quả thực tế cho thấy Site A và Site B có độ trễ ~26.82ms, trong khi Site B và C chỉ mất ~20.50ms do cùng kết nối vào PE2. Điều này chứng minh khoảng cách hop trong mạng lõi MPLS ảnh hưởng trực tiếp đến RTT.}
-
-\begin{figure}[H]
-    \centering
-    % [NOTE] SAU KHI VẼ BIỂU ĐỒ BẰNG EXCEL TỪ FILE KẾT QUẢ, HÃY LƯU THÀNH ẢNH VÀ DÁN VÀO ĐÂY
-    % \includegraphics[width=0.8\textwidth]{image/chart_throughput.png}
-    \caption{Biểu đồ so sánh Băng thông (Throughput) giữa các chi nhánh}
-    \label{fig:chart_throughput}
-\end{figure}
-\textit{\textbf{Giải thích minh chứng:} Hình \ref{fig:chart_throughput} thể hiện thông lượng truyền tải dữ liệu. Kết quả đo được 189Mbps tại Site C (Leaf-Spine) khi giao tiếp nội bộ PE cho thấy khả năng chịu tải cực tốt của kiến trúc này so với mức ~100Mbps khi phải đi qua các đường WAN Backbone.}
-
-\subsection{Kết luận chung}
-Đồ án đã mô phỏng và triển khai thành công kiến trúc mạng Metro Ethernet sử dụng công nghệ MPLS kết nối 3 chi nhánh doanh nghiệp có hạ tầng LAN nội bộ khác biệt. 
-Qua quá trình thực nghiệm trên nền tảng Mininet, hệ thống đã chứng minh được sự vượt trội của MPLS Label Switching trong việc chuyển tiếp gói tin nhanh chóng qua mạng lõi của ISP. Đồng thời, kết quả kiểm thử cũng cho thấy lựa chọn kiến trúc mạng LAN có ảnh hưởng trực tiếp đến hiệu năng truyền thông đầu cuối của doanh nghiệp. Mạng Leaf-Spine thể hiện sự ưu việt trong quy mô lớn, trong khi mô hình 3 lớp vẫn giữ vững vai trò tiêu chuẩn cho các tòa nhà văn phòng thông thường.
+Những đánh giá về mặt hiệu suất là minh chứng rõ rệt cho chi phí về thời gian xử lý khi thực hiện bộ đệm tường lửa. Mô hình hoàn toàn có khả năng mở rộng để ứng dụng các kịch bản mạng máy tính phức tạp hơn trong tương lai, cung cấp một nền tảng thực tiễn về cấu trúc an ninh hệ thống mạng hiện đại.
