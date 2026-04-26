@@ -1,0 +1,17 @@
+\section{TỔNG QUAN VÀ THIẾT KẾ TOPOLOGY}
+
+\subsection{Giới thiệu bài toán}
+Trong kỷ nguyên kỹ thuật số hiện đại, việc xây dựng một hệ thống mạng doanh nghiệp không chỉ dừng lại ở yêu cầu về kết nối mà còn đòi hỏi khả năng bảo mật cao và tính sẵn sàng liên tục. Đồ án này tập trung vào việc thiết kế và triển khai một hệ thống mạng Campus 3 lớp tiêu chuẩn (Core - Distribution - Access) có tích hợp vùng biên DMZ (Demilitarized Zone) để đặt các dịch vụ công cộng. Bên cạnh đó, hệ thống còn được trang bị các cơ chế phòng thủ đa tầng và khả năng tự động cân bằng tải (Load Balancing) dựa trên ngưỡng băng thông định trước.
+
+\subsection{Thiết kế Topology mạng 3 lớp}
+Mô hình mạng được xây dựng trên môi trường ảo hóa Mininet kết hợp với FRRouting để giả lập các bộ định tuyến chuyên dụng. Cấu trúc mạng bao gồm các phân đoạn chính sau:
+
+\begin{itemize}
+    \item \textbf{Vùng Access (Lớp truy cập):} Bao gồm các Switch \texttt{acc1} và \texttt{acc2} cung cấp kết nối cho người dùng nội bộ (Inside). Phân vùng này sử dụng dải IP \texttt{192.168.10.0/24} và \texttt{192.168.20.0/24}.
+    \item \textbf{Vùng Distribution (Lớp phân phối):} Gồm các Router \texttt{dist1} và \texttt{dist2} đóng vai trò Default Gateway cho lớp Access, đồng thời tổng hợp lưu lượng để đẩy lên lớp Core.
+    \item \textbf{Vùng Core (Lớp lõi):} Gồm Router \texttt{core} chịu trách nhiệm luân chuyển dữ liệu tốc độ cao giữa các vùng mạng nội bộ và vùng biên.
+    \item \textbf{Vùng Biên (Firewall/Edge):} Router \texttt{fw} đứng tại cửa ngõ giao tiếp giữa mạng nội bộ và mạng Internet (mô phỏng bởi node \texttt{ext}). Router này áp dụng các chính sách NAT và các bộ lọc ACL (Access Control List) bảo mật.
+    \item \textbf{Vùng DMZ:} Nằm cách ly qua \texttt{fw}, chứa cụm máy chủ Web (Web1: \texttt{10.10.10.11} và Web2: \texttt{10.10.10.12}) cung cấp dịch vụ ra bên ngoài nhưng được bảo vệ nghiêm ngặt khỏi các cuộc tấn công trực tiếp vào mạng nội bộ.
+\end{itemize}
+
+Việc chia tách mạng thành mô hình 3 lớp kết hợp DMZ giúp tăng tính module hóa, dễ dàng mở rộng, cô lập lỗi và đặc biệt là áp dụng chính sách bảo mật một cách linh hoạt tại điểm nghẽn (choke point).

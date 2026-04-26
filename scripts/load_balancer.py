@@ -47,18 +47,23 @@ def ensure_dir():
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
 
-def _measure_bw(host, server_ip, port=5201, duration=1.5):
+def _measure_bw(host, duration=1.5):
     """
-    Chay iperf TCP trong thoi gian ngan de do bandwidth.
-    Tra ve Mbps hoac 0 neu that bai.
+    Do bandwidth thuc te tren interface eth0 cua host bang cach doc bytes tu kernel.
+    Tra ve Mbps.
     """
-    out = host.cmd(
-        f'iperf -c {server_ip} -p {port} -t {duration:.0f} -f m 2>/dev/null'
-    )
-    m = re.search(r'([\d.]+)\s+Mbits/sec', out)
-    if m:
-        return float(m.group(1))
-    return 0.0
+    def get_bytes():
+        out = host.cmd('cat /sys/class/net/eth0/statistics/rx_bytes 2>/dev/null || echo 0')
+        try: return int(out.strip())
+        except: return 0
+
+    b1 = get_bytes()
+    time.sleep(duration)
+    b2 = get_bytes()
+    
+    # Mbps = (delta_bytes * 8) / (duration * 10^6)
+    mbps = ((b2 - b1) * 8) / (duration * 1e6)
+    return max(0.0, mbps)
 
 
 def _redirect_to(fw, target_ip):
@@ -90,6 +95,8 @@ def demo_load_balance(net, cycles=15):
     # Bat iperf server tren ca 2
     web1.cmd('pkill -f "iperf -s" 2>/dev/null; iperf -s -p 5201 &')
     web2.cmd('pkill -f "iperf -s" 2>/dev/null; iperf -s -p 5201 &')
+    # Mo port 5201 tren Firewall de test load balance
+    fw.cmd('iptables -I FORWARD -p tcp --dport 5201 -j ACCEPT')
     time.sleep(0.5)
 
     print('\n' + '='*65)
@@ -100,19 +107,20 @@ def demo_load_balance(net, cycles=15):
     print(f'  {"Chu ky":<7} {"Thoi gian":<12} {"web1 (Mbps)":<14} {"web2 (Mbps)":<14} {"Tai web1 %":<12} {"Server dang dung":<18} {"Hanh dong"}')
     print('  ' + '-'*90)
 
-    # Gia lap phat sinh tai: h1 gui traffic den web1 ban dau
+    # Gia lap phat sinh tai: h3 gui traffic den PUBLIC IP 100.0.0.11
+    # De Firewall co the thuc hien DNAT Load Balancing
     _redirect_to(fw, web1.IP())
-    # Phat sinh 1 luong tai lon vao web1 tu h3 (gia lap nhieu client)
-    h3.cmd(f'iperf -c {web1.IP()} -p 5201 -t {int(cycles * POLL_INTERVAL + 5)} -b 70M &')
-    time.sleep(0.3)
+    print(f'  [SIM] Dang bom tai 90Mbps vao PUBLIC IP 100.0.0.11 (port 5201)...')
+    h3.cmd(f'iperf -c 100.0.0.11 -p 5201 -t {int(cycles * POLL_INTERVAL + 10)} -b 90M &')
+    time.sleep(0.5)
 
     for i in range(cycles):
         t_start = time.time()
         ts      = datetime.now().strftime('%H:%M:%S')
 
-        # Do bandwidth tren web1 va web2
-        bw1 = _measure_bw(h1, web1.IP(), duration=POLL_INTERVAL - 0.5)
-        bw2 = _measure_bw(h1, web2.IP(), duration=POLL_INTERVAL - 0.5)
+        # Do bandwidth thuc te tren tung server
+        bw1 = _measure_bw(web1, duration=POLL_INTERVAL/2)
+        bw2 = _measure_bw(web2, duration=POLL_INTERVAL/2)
         load1_pct = min((bw1 / MAX_BW_MBPS) * 100.0, 100.0)
         action    = '-'
 
@@ -154,6 +162,8 @@ def demo_load_balance(net, cycles=15):
     h3.cmd('pkill -f iperf 2>/dev/null || true')
     web1.cmd('pkill -f "iperf -s" 2>/dev/null || true')
     web2.cmd('pkill -f "iperf -s" 2>/dev/null || true')
+    # Dong port 5201 tren Firewall
+    fw.cmd('iptables -D FORWARD -p tcp --dport 5201 -j ACCEPT')
 
     print('\n' + '='*65)
     print('  KET QUA TONG HOP:')

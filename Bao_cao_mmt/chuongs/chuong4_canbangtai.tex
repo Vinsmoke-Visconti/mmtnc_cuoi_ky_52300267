@@ -1,0 +1,24 @@
+\section{THỰC NGHIỆM CÂN BẰNG TẢI THEO NGƯỠNG}
+
+\subsection{Thuật toán giám sát và điều tiết lưu lượng}
+Để tối ưu hóa tài nguyên phần cứng và đảm bảo dịch vụ Web trong DMZ luôn phản hồi ở mức tốt nhất, một thuật toán Cân bằng tải (Load Balancing) dựa trên ngưỡng (Threshold-based) đã được lập trình bằng Python.
+
+Thuật toán hoạt động dựa trên cơ chế vòng lặp Polling liên tục (mặc định 2 giây/lần):
+\begin{enumerate}
+    \item \textbf{Đọc băng thông thực tế:} Hàm \texttt{\_measure\_bw} truy cập trực tiếp vào hệ thống file của Linux Kernel (\texttt{/sys/class/net/eth0/statistics/rx\_bytes}) của Server để tính toán lưu lượng theo thời gian thực (đơn vị Mbps).
+    \item \textbf{Xử lý ngưỡng trên (Upper Threshold - 80\%):} Ban đầu, mọi lưu lượng (DNAT) đều được trỏ về Web1 (Primary). Nếu tải trên Web1 vượt quá 80\% tổng băng thông giới hạn (100Mbps), thuật toán sẽ nhận diện Web1 đang gặp trạng thái quá tải. Ngay lập tức, Python sẽ gọi một tập lệnh cấu hình lại \texttt{iptables} trên Firewall, xóa bỏ Rule DNAT cũ và trỏ luồng truy cập mới sang Web2 (Backup).
+    \item \textbf{Xử lý ngưỡng dưới (Lower Threshold - 20\%):} Trong quá trình Web2 đang hoạt động, script vẫn tiếp tục giám sát Web1. Khi tải trên Web1 đã giảm xuống dưới 20\%, chứng tỏ Server đã an toàn trở lại, hệ thống sẽ đổi luồng (redirect) một lần nữa, đưa cấu hình mạng trở về trạng thái trỏ vào Web1 để tiết kiệm tài nguyên cho Web2.
+\end{enumerate}
+
+\subsection{Kết quả điều tiết lưu lượng thực tế}
+Việc chuyển đổi luồng dữ liệu này hoàn toàn trong suốt (transparent) với người dùng bên ngoài, do họ luôn chỉ kết nối vào duy nhất một IP Public (\texttt{100.0.0.11}). Sự điều phối diễn ra ở tầng mạng (Layer 3/4) thông qua quá trình dịch đổi DNAT linh hoạt.
+
+\begin{figure}[H]
+    \centering
+    % [NOTE] Sinh viên cần chạy script "test_lb" và dán ảnh sinh ra (thư mục results) vào thư mục image của báo cáo, rồi bỏ comment dòng bên dưới.
+    % \includegraphics[width=0.9\textwidth]{../results/lb_chart.png}
+    \caption{Đồ thị Line Chart thay đổi băng thông trên các Server Web1/Web2 theo thời gian thực}
+    \label{fig:lb_chart}
+\end{figure}
+
+\textit{Phân tích đồ thị (Hình \ref{fig:lb_chart}):} Được vẽ bằng thư viện Matplotlib (Python). Đường màu xanh biểu diễn phần trăm tải trên Web1. Khi đường này cắt ngang mức 80\% (đường gạch đứt màu đỏ), hệ thống lập tức ghi nhận một hành động "Switch" (Chuyển đổi). Lúc này, lưu lượng trên Web2 (đường nét đứt màu cam) bắt đầu tăng vọt do phải tiếp nhận các luồng kết nối mới được Firewall bẻ lái sang. Khi tải Web1 giảm chạm mốc 20\% (đường đứt nét xanh lá), biểu đồ lại hiển thị thêm một lần "Switch" để khôi phục cấu hình như ban đầu. Kịch bản thực nghiệm này chứng minh tính đúng đắn và thời gian đáp ứng cực nhanh của cơ chế tự động hóa mạng (Network Automation).

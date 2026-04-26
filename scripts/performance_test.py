@@ -57,6 +57,11 @@ def full_test(net):
     web1, web2   = net.get('web1'), net.get('web2')
     fw           = net.get('fw')
 
+    # [PRE-TEST] Mo tam thoi port iPerf (5201) tren Firewall de do luong
+    print('\n[INFO] Mo port 5201 tren Firewall de do luong...')
+    fw.cmd('iptables -I FORWARD -p tcp --dport 5201 -j ACCEPT')
+    fw.cmd('iptables -I FORWARD -p udp --dport 5201 -j ACCEPT')
+
     # PING
     print('\n[1] PING TESTS')
     for src, dst, label in [
@@ -125,6 +130,11 @@ def full_test(net):
     fw.cmd('iptables -t nat -A POSTROUTING -s 192.168.10.0/24 -o fw-eth0 -j MASQUERADE')
     fw.cmd('iptables -t nat -A POSTROUTING -s 192.168.20.0/24 -o fw-eth0 -j MASQUERADE')
     fw.cmd('iptables -P FORWARD DROP')
+
+    # [POST-TEST] Dong port iPerf
+    print('\n[INFO] Dong port 5201, khoi phuc trang thai bao mat...')
+    fw.cmd('iptables -D FORWARD -p tcp --dport 5201 -j ACCEPT')
+    fw.cmd('iptables -D FORWARD -p udp --dport 5201 -j ACCEPT')
 
     json_path = f'{RESULTS_DIR}/perf_report_{ts}.json'
     with open(json_path,'w',encoding='utf-8') as f: json.dump(report, f, indent=2, ensure_ascii=False)

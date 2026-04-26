@@ -1,0 +1,26 @@
+\section{TRIỂN KHAI BẢO MẬT ĐA LỚP}
+
+\subsection{Nguyên tắc thiết kế Tường lửa}
+Hệ thống áp dụng chính sách bảo mật Zero-Trust tại vùng biên. Chính sách mặc định (Default Policy) của chuỗi FORWARD trên iptables được đặt là \texttt{DROP}. Nghĩa là tất cả các gói tin đi xuyên qua Firewall đều bị hủy bỏ trừ khi có một quy tắc (rule) cho phép tường minh.
+
+\subsection{Cấu hình Extended ACL (Lọc dịch vụ)}
+Extended ACL cho phép kiểm soát luồng dữ liệu một cách tinh xảo dựa trên IP nguồn, IP đích, giao thức (TCP/UDP) và số hiệu cổng (Port). Trong mô hình này, vùng DMZ chứa Web Server, do đó các máy trạm từ Inside chỉ được phép truy cập vào DMZ qua Port 80 (HTTP) và Port 443 (HTTPS).
+\begin{lstlisting}[style=powershell]
+# Cho phep cac ket noi tra ve hop le
+iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+# Extended ACL mo port 80, 443 vao DMZ
+iptables -A FORWARD -s 192.168.10.0/24 -d 10.10.10.0/24 -p tcp --dport 80 -j ACCEPT
+\end{lstlisting}
+
+\subsection{Cấu hình Standard ACL (Lọc nguồn)}
+Để tăng cường bảo mật cho máy chủ, hệ thống thiết lập một Standard ACL nhằm ngăn chặn hoàn toàn việc truy cập dịch vụ quản trị từ xa (SSH - Port 22) từ dải mạng \texttt{192.168.20.0/24} (giả sử đây là dải mạng của khách vãng lai hoặc thiết bị IoT).
+\begin{lstlisting}[style=powershell]
+iptables -A FORWARD -s 192.168.20.0/24 -d 10.10.10.0/24 -p tcp --dport 22 -j DROP
+\end{lstlisting}
+
+Ngoài ra, một nguyên tắc bất di bất dịch của DMZ là: Server trong DMZ không bao giờ được phép khởi tạo kết nối (Initiate Connection) ngược trở lại vùng Inside mạng nội bộ để đề phòng trường hợp Server bị Hacker chiếm quyền điều khiển:
+\begin{lstlisting}[style=powershell]
+iptables -A FORWARD -s 10.10.10.0/24 -d 192.168.0.0/16 -j DROP
+\end{lstlisting}
+
+Việc đặt ACL trực tiếp trên Firewall Router đứng giữa các ranh giới mạng (Inside, Outside, DMZ) mang lại hiệu quả cao nhất vì tất cả lưu lượng liên mạng bắt buộc phải đi qua điểm nghẽn này.

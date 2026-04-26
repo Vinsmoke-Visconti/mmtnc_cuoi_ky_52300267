@@ -1,0 +1,44 @@
+\section{CẤU HÌNH ĐỊNH TUYẾN OSPF VÀ NAT/PAT}
+
+\subsection{Cấu hình Định tuyến động OSPF}
+Để đảm bảo các Router trong mạng Campus (Core, Dist1, Dist2, FW) nhận biết được đường đi đến các mạng con của nhau, giao thức OSPF Area 0 được triển khai. Quá trình cấu hình được thực hiện thông qua bộ phần mềm FRRouting (FRR) gồm hai tiến trình chính là \texttt{zebra} (quản lý giao diện) và \texttt{ospfd} (định tuyến OSPF).
+Các Router sẽ thiết lập Neighbor và trao đổi LSA, tạo nên một bảng định tuyến hoàn chỉnh, giúp gói tin có thể đi từ mạng Access đến DMZ hoặc đi ra Firewall một cách tối ưu.
+
+\subsection{Cấu hình NAT và PAT}
+Vì dải địa chỉ IP nội bộ (\texttt{192.168.x.x} và \texttt{10.10.10.x}) là địa chỉ Private, không thể định tuyến trên Internet, hệ thống triển khai hai kỹ thuật biên dịch địa chỉ tại Router FW:
+
+\subsubsection{PAT Overload cho mạng Inside}
+Sử dụng công cụ \texttt{iptables} trên Linux, mọi luồng dữ liệu từ mạng nội bộ (Inside) khi đi ra cổng \texttt{fw-eth0} kết nối Internet đều được ngụy trang (MASQUERADE) dưới địa chỉ IP Public của FW (\texttt{203.0.113.2}).
+\begin{lstlisting}[style=powershell]
+iptables -t nat -A POSTROUTING -s 192.168.10.0/24 -o fw-eth0 -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 192.168.20.0/24 -o fw-eth0 -j MASQUERADE
+\end{lstlisting}
+
+\subsubsection{Static NAT cho Server vùng DMZ}
+Để máy tính từ bên ngoài Internet có thể truy cập được Web Server trong DMZ, kỹ thuật Static NAT được áp dụng để ánh xạ 1-1 giữa IP Public và IP Private:
+\begin{itemize}
+    \item \texttt{100.0.0.11} (Public) $\Leftrightarrow$ \texttt{10.10.10.11} (Web1 Private)
+    \item \texttt{100.0.0.12} (Public) $\Leftrightarrow$ \texttt{10.10.10.12} (Web2 Private)
+\end{itemize}
+
+\subsection{Bảng thống kê NAT (NAT Translation Table)}
+Dưới đây là bảng mô phỏng chi tiết các bản dịch NAT được ghi nhận trên Firewall khi có nhiều thiết bị từ Inside truy cập Internet và thiết bị Outside truy cập vào DMZ đồng thời.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+    \hline
+    \rowcolor[HTML]{2C3E50} 
+    \color{white} \textbf{Giao thức} & \color{white} \textbf{Inside Local} & \color{white} \textbf{Outside Global (NAT)} & \color{white} \textbf{Outside Local/Global (Đích)} \\ \hline
+    TCP (Web) & 192.168.10.11:51234 & 203.0.113.2:1024 (PAT) & 8.8.8.8:443 \\ \hline
+    TCP (Web) & 192.168.20.12:49152 & 203.0.113.2:1025 (PAT) & 1.1.1.1:80 \\ \hline
+    ICMP (Ping) & 192.168.10.12:1234 & 203.0.113.2:1026 (PAT) & 8.8.4.4:0 \\ \hline
+    \rowcolor[HTML]{D5F5E3}
+    TCP (Web) & 10.10.10.11:80 & 100.0.0.11:80 (Static NAT) & 203.0.113.1:56789 \\ \hline
+    \rowcolor[HTML]{D5F5E3}
+    TCP (Web) & 10.10.10.12:443 & 100.0.0.12:443 (Static NAT) & 203.0.113.1:56790 \\ \hline
+    \end{tabular}
+    \caption{Chi tiết bảng dịch NAT/PAT trên Firewall Router}
+    \label{tab:nat_table}
+\end{table}
+\textit{Giải thích: Các luồng từ 192.168.x.x (Inside Local) đều bị đổi Source IP thành 203.0.113.2 (Outside Global) với port ngẫu nhiên. Ngược lại, luồng từ Outside truy cập vào 100.0.0.11 sẽ được DNAT về 10.10.10.11 port 80.}

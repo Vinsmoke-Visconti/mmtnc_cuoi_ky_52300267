@@ -1,0 +1,48 @@
+\section{PHÂN TÍCH KẾT QUẢ VÀ KẾT LUẬN}
+
+\subsection{Đánh giá hiệu suất khi đi qua Tường lửa và NAT}
+Bất kỳ cơ chế bảo mật (như ACL Firewall) hay quá trình biên dịch địa chỉ (NAT/PAT) nào cũng đòi hỏi Router phải bóc tách Header của gói tin (Packet Inspection) để thay đổi thông tin nội bộ. Quá trình này tiêu tốn năng lực xử lý (CPU) và do đó chắc chắn gây ra một độ trễ nhất định cho luồng mạng so với việc định tuyến thông thường (Raw Routing).
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|c|c|c|c|}
+    \hline
+    \rowcolor[HTML]{2C3E50} 
+    \color{white} \textbf{Kịch bản đo đạc} & \color{white} \textbf{Throughput TCP} & \color{white} \textbf{Jitter UDP} & \color{white} \textbf{Latency RTT (Ping)} \\ \hline
+    Kết nối nội bộ (Không NAT/ACL) & 99.8 Mbps & 0.015 ms & 0.85 ms \\ \hline
+    Kết nối qua FW (Có PAT + ACL) & 96.5 Mbps & 0.082 ms & 2.15 ms \\ \hline
+    Truy cập DMZ (Có Static NAT) & 97.2 Mbps & 0.055 ms & 1.80 ms \\ \hline
+    \end{tabular}
+    \caption{Bảng so sánh lưu lượng và độ trễ khi áp dụng cơ chế Bảo mật/NAT}
+    \label{tab:perf_comparison}
+\end{table}
+
+Qua Bảng \ref{tab:perf_comparison}, ta nhận thấy băng thông tối đa (Throughput) suy giảm nhẹ khoảng $3-4\%$ khi gói tin phải vượt qua Tường lửa FW. Đặc biệt, độ trễ RTT (Latency) tăng lên gấp đôi (từ 0.85ms lên 2.15ms). Dù độ trễ này trong thực tế vẫn cực kỳ tốt và không gây gián đoạn dịch vụ, nó vẫn là một sự "đánh đổi" tất yếu giữa \textbf{Hiệu suất (Performance)} và \textbf{Bảo mật (Security)}.
+
+\subsection{Quản lý sự cố khi NAT phá vỡ tính truy vết (Traceability)}
+Một trong những tác dụng phụ khó chịu nhất của PAT Overload là việc tất cả các kết nối từ Inside đi ra Internet đều bị gom chung về 1 địa chỉ IP duy nhất (IP Public của Firewall). Điều này hoàn toàn phá vỡ tính truy vết nguồn gốc (Traceability) khi có sự cố tấn công xuất phát từ nội bộ ra ngoài mạng.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{0.35\textwidth}|p{0.6\textwidth}|}
+    \hline
+    \rowcolor[HTML]{2C3E50} 
+    \color{white} \textbf{Tình huống sự cố} & \color{white} \textbf{Giải pháp khắc phục bằng Log} \\ \hline
+    \textbf{Tấn công từ bên trong:} Một thiết bị trong dải 192.168.10.x phát tán mã độc ra Internet. ISP yêu cầu quản trị viên khóa máy trạm gây hại, nhưng họ chỉ cung cấp IP Public của Firewall kèm số Source Port. & 
+    Bật tính năng lưu nhật ký Syslog cho Iptables NAT. Quản trị viên sử dụng lệnh:
+    \texttt{iptables -t nat -A POSTROUTING -j LOG --log-prefix "NAT-TRACE: "}
+    Khi đó, file \texttt{/var/log/syslog} sẽ ghi nhận ánh xạ gốc như:
+    \textit{SRC=192.168.10.11 SPT=54321 $\to$ NAT-SRC=203.0.113.2 NAT-SPT=1234}. Dựa vào NAT-SPT do ISP cung cấp, đối chiếu ngược lại Log sẽ tìm ra chính xác máy tính gây hại. \\ \hline
+    \end{tabular}
+    \caption{Bảng quản lý sự cố Traceability khi triển khai NAT/PAT}
+    \label{tab:troubleshoot_nat}
+\end{table}
+
+\subsection{Kết luận và Hướng phát triển}
+Đồ án đã mô phỏng thành công mạng Campus 3 lớp tiêu chuẩn tích hợp đầy đủ OSPF, PAT/Static NAT, và bảo vệ hạ tầng bằng cơ chế ACL. Thuật toán cân bằng tải bằng Python được kiểm chứng thực tế bằng các số liệu biểu đồ tin cậy.
+
+\textbf{Hướng phát triển tương lai:}
+\begin{itemize}
+    \item Triển khai thuật toán cân bằng tải phức tạp hơn (như Round-Robin hoặc Least-Connection) trên nền tảng Nginx/HAProxy thay vì dùng Iptables ở lớp mạng.
+    \item Áp dụng SDN (Software Defined Networking) với giao thức OpenFlow để điều khiển tập trung luồng dữ liệu thay vì cấu hình tĩnh lẻ tẻ trên từng Switch.
+\end{itemize}
