@@ -123,6 +123,9 @@ def build_topology(net):
     net.addLink(dist1, acc1, intfName1='dist1-eth1', bw=100, delay='2ms')
     net.addLink(dist2, acc2, intfName1='dist2-eth1', bw=100, delay='2ms')
 
+    # === [UPGRADE MUC 3] Redundant Link (HA): dist1 --- dist2 (1 Gbps, 1ms) ===
+    net.addLink(dist1, dist2, intfName1='dist1-eth2', intfName2='dist2-eth2', bw=1000, delay='1ms')
+
     # === Access --- Hosts ===
     net.addLink(acc1, h1)
     net.addLink(acc1, h2)
@@ -181,6 +184,10 @@ def configure_ip(net):
 
     # --- dist2 --- acc2 (gateway for 192.168.20.x) ---
     net.get('dist2').cmd('ip addr add 192.168.20.1/24 dev dist2-eth1')
+
+    # --- [UPGRADE MUC 3] dist1 --- dist2 (Redundant Link) ---
+    net.get('dist1').cmd('ip addr add 172.16.3.1/30 dev dist1-eth2')
+    net.get('dist2').cmd('ip addr add 172.16.3.2/30 dev dist2-eth2')
 
     # --- ext: default route huong vao fw (de gia lap internet) ---
     net.get('ext').cmd('ip route add 100.0.0.0/24 via 203.0.113.2')
@@ -279,6 +286,9 @@ def configure_nat(net):
 
     # Default FORWARD policy: DROP
     fw.cmd('iptables -P FORWARD DROP')
+
+    # --- [UPGRADE MUC 3] Logging cho Heatmap (Security Intelligence) ---
+    fw.cmd('iptables -A FORWARD -m limit --limit 5/min -j LOG --log-prefix "ACL-DROP: " --log-level 4')
 
     # INPUT/OUTPUT: ACCEPT (router chinh no)
     fw.cmd('iptables -P INPUT  ACCEPT')

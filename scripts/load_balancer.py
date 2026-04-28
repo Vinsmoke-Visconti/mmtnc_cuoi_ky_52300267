@@ -40,6 +40,7 @@ UPPER_THRESH  = 80.0   # %: nguong tren, chuyen sang backup
 LOWER_THRESH  = 20.0   # %: nguong duoi, chuyen ve primary
 MAX_BW_MBPS   = 100.0  # Mbps (bang thong WAN link)
 IPERF_DURATION = POLL_INTERVAL - 0.5
+MIN_SWITCH_INTERVAL = 10.0 # [UPGRADE MUC 3] Giay: Thoi gian cho toi thieu giua 2 lan switch (chong flapping)
 
 
 # ---------------------------------------------------------------
@@ -114,6 +115,9 @@ def demo_load_balance(net, cycles=15):
     h3.cmd(f'iperf -c 100.0.0.11 -p 5201 -t {int(cycles * POLL_INTERVAL + 10)} -b 90M &')
     time.sleep(0.5)
 
+    last_switch_time = 0
+
+
     for i in range(cycles):
         t_start = time.time()
         ts      = datetime.now().strftime('%H:%M:%S')
@@ -124,15 +128,21 @@ def demo_load_balance(net, cycles=15):
         load1_pct = min((bw1 / MAX_BW_MBPS) * 100.0, 100.0)
         action    = '-'
 
-        # Logic chuyen luong theo nguong
-        if load1_pct > UPPER_THRESH and current_srv == 'web1':
+        # Logic chuyen luong theo nguong [CO CHONG FLAPPING]
+        can_switch = (time.time() - last_switch_time) > MIN_SWITCH_INTERVAL
+
+        if load1_pct > UPPER_THRESH and current_srv == 'web1' and can_switch:
             _redirect_to(fw, web2.IP())
             current_srv = 'web2'
             action = '>> CHUYEN -> web2 (tai web1 > 80%)'
-        elif load1_pct < LOWER_THRESH and current_srv == 'web2':
+            last_switch_time = time.time()
+        elif load1_pct < LOWER_THRESH and current_srv == 'web2' and can_switch:
             _redirect_to(fw, web1.IP())
             current_srv = 'web1'
             action = '<< TRO VE web1 (tai web1 < 20%)'
+            last_switch_time = time.time()
+        elif (load1_pct > UPPER_THRESH or load1_pct < LOWER_THRESH) and not can_switch:
+            action = '!! FLAPPING DETECTED - Cho nguoi dung on dinh...'
 
         entry = {
             'cycle':      i + 1,

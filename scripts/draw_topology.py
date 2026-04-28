@@ -116,11 +116,13 @@ def draw():
 
     # --- DISTRIBUTION ---
     box(5.5, 5.0, 2.5, 0.7, C['dist'], 'dist1 (Distribution)',
-        '172.16.1.2 | 192.168.10.1\nOSPF Area 0 | Router-ID: 10.255.1.2')
+        '172.16.1.2 | 172.16.3.1 | 192.168.10.1\nOSPF Area 0 | Router-ID: 10.255.1.2')
     box(10.5, 5.0, 2.5, 0.7, C['dist'], 'dist2 (Distribution)',
-        '172.16.2.2 | 192.168.20.1\nOSPF Area 0 | Router-ID: 10.255.1.3')
+        '172.16.2.2 | 172.16.3.2 | 192.168.20.1\nOSPF Area 0 | Router-ID: 10.255.1.3')
     link(8-1.3, 6.5, 5.5+1.25, 5.0+0.35, color='#27AE60', lw=2, label='172.16.1.0/30')
     link(8+1.3, 6.5, 10.5-1.25, 5.0+0.35, color='#27AE60', lw=2, label='172.16.2.0/30')
+    # Redundant HA Link
+    link(5.5+1.25, 5.0, 10.5-1.25, 5.0, color='#F1C40F', lw=1.5, ls='--', label='HA Link (172.16.3.0/30)')
 
     # --- ACCESS ---
     box(5.5, 3.5, 1.8, 0.6, C['access'], 'acc1', 'Access Switch 1')
