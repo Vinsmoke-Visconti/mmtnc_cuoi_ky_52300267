@@ -5,7 +5,7 @@ Bất kỳ cơ chế bảo mật (như ACL Firewall) hay quá trình biên dịc
 
 \begin{table}[H]
     \centering
-    \begin{tabular}{|l|c|c|c|c|}
+    \begin{tabular}{|p{0.4\textwidth}|p{0.2\textwidth}|p{0.15\textwidth}|p{0.15\textwidth}|}
     \hline
     \rowcolor[HTML]{2C3E50} 
     \color{white} \textbf{Kịch bản đo đạc} & \color{white} \textbf{Throughput TCP} & \color{white} \textbf{Jitter UDP} & \color{white} \textbf{Latency RTT (Ping)} \\ \hline
@@ -18,6 +18,15 @@ Bất kỳ cơ chế bảo mật (như ACL Firewall) hay quá trình biên dịc
 \end{table}
 
 Qua Bảng \ref{tab:perf_comparison}, ta nhận thấy băng thông tối đa (Throughput) suy giảm nhẹ khoảng $3-4\%$ khi gói tin phải vượt qua Tường lửa FW. Đặc biệt, độ trễ RTT (Latency) tăng lên gấp đôi (từ 0.85ms lên 2.15ms). Dù độ trễ này trong thực tế vẫn cực kỳ tốt và không gây gián đoạn dịch vụ, nó vẫn là một sự "đánh đổi" tất yếu giữa \textbf{Hiệu suất (Performance)} và \textbf{Bảo mật (Security)}.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "test_perf" trong Mininet CLI. Chụp kết quả iperf 
+    % và ping giữa các vùng. Lưu vào image/performance_test.png.
+    % \includegraphics[width=0.8\textwidth]{image/performance_test.png}
+    \caption{Kết quả đo lường băng thông và độ trễ thực tế qua Firewall}
+    \label{fig:performance_actual}
+\end{figure}
 
 \subsection{Quản lý sự cố khi NAT phá vỡ tính truy vết (Traceability)}
 Một trong những tác dụng phụ khó chịu nhất của PAT Overload là việc tất cả các kết nối từ Inside đi ra Internet đều bị gom chung về 1 địa chỉ IP duy nhất (IP Public của Firewall). Điều này hoàn toàn phá vỡ tính truy vết nguồn gốc (Traceability) khi có sự cố tấn công xuất phát từ nội bộ ra ngoài mạng.

@@ -4,6 +4,24 @@
 Để đảm bảo các Router trong mạng Campus (Core, Dist1, Dist2, FW) nhận biết được đường đi đến các mạng con của nhau, giao thức OSPF Area 0 được triển khai. Quá trình cấu hình được thực hiện thông qua bộ phần mềm FRRouting (FRR) gồm hai tiến trình chính là \texttt{zebra} (quản lý giao diện) và \texttt{ospfd} (định tuyến OSPF).
 Các Router sẽ thiết lập Neighbor và trao đổi LSA, tạo nên một bảng định tuyến hoàn chỉnh, giúp gói tin có thể đi từ mạng Access đến DMZ hoặc đi ra Firewall một cách tối ưu.
 
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "fw vtysh -c 'show ip ospf neighbor'" trên Mininet.
+    % Chụp kết quả hiển thị trạng thái "Full" và lưu vào image/ospf_neighbor.png.
+    % \includegraphics[width=0.8\textwidth]{image/ospf_neighbor.png}
+    \caption{Trạng thái láng giềng OSPF (Full) trên Router biên}
+    \label{fig:ospf_neighbor}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "core vtysh -c 'show ip route'" trên Mininet.
+    % Chụp bảng định tuyến có các đường học từ OSPF (ký hiệu O) và lưu vào image/routing_table.png.
+    % \includegraphics[width=0.8\textwidth]{image/routing_table.png}
+    \caption{Bảng định tuyến của Core Router hiển thị các mạng học qua OSPF}
+    \label{fig:routing_table}
+\end{figure}
+
 \subsection{Cấu hình NAT và PAT}
 Vì dải địa chỉ IP nội bộ (\texttt{192.168.x.x} và \texttt{10.10.10.x}) là địa chỉ Private, không thể định tuyến trên Internet, hệ thống triển khai hai kỹ thuật biên dịch địa chỉ tại Router FW:
 
@@ -26,7 +44,7 @@ Dưới đây là bảng mô phỏng chi tiết các bản dịch NAT được g
 
 \begin{table}[H]
     \centering
-    \begin{tabular}{|c|c|c|c|}
+    \begin{tabular}{|p{0.15\textwidth}|p{0.25\textwidth}|p{0.25\textwidth}|p{0.25\textwidth}|}
     \hline
     \rowcolor[HTML]{2C3E50} 
     \color{white} \textbf{Giao thức} & \color{white} \textbf{Inside Local} & \color{white} \textbf{Outside Global (NAT)} & \color{white} \textbf{Outside Local/Global (Đích)} \\ \hline
@@ -42,3 +60,12 @@ Dưới đây là bảng mô phỏng chi tiết các bản dịch NAT được g
     \label{tab:nat_table}
 \end{table}
 \textit{Giải thích: Các luồng từ 192.168.x.x (Inside Local) đều bị đổi Source IP thành 203.0.113.2 (Outside Global) với port ngẫu nhiên. Ngược lại, luồng từ Outside truy cập vào 100.0.0.11 sẽ được DNAT về 10.10.10.11 port 80.}
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "ext curl -s 100.0.0.11:80" hoặc "ext ping -c 3 100.0.0.11".
+    % Chụp màn hình cho thấy ext truy cập được vào web1 qua IP NAT. Lưu vào image/nat_verify.png.
+    % \includegraphics[width=0.8\textwidth]{image/nat_verify.png}
+    \caption{Kiểm tra truy cập từ Internet vào DMZ qua cơ chế Static NAT}
+    \label{fig:nat_verify}
+\end{figure}

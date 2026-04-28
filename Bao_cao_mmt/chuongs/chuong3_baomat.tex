@@ -24,3 +24,22 @@ iptables -A FORWARD -s 10.10.10.0/24 -d 192.168.0.0/16 -j DROP
 \end{lstlisting}
 
 Việc đặt ACL trực tiếp trên Firewall Router đứng giữa các ranh giới mạng (Inside, Outside, DMZ) mang lại hiệu quả cao nhất vì tất cả lưu lượng liên mạng bắt buộc phải đi qua điểm nghẽn này.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "fw iptables -L FORWARD -n -v --line-numbers".
+    % Chụp danh sách các rule ACL đã cấu hình trên Firewall. Lưu vào image/firewall_rules.png.
+    % \includegraphics[width=0.9\textwidth]{image/firewall_rules.png}
+    \caption{Danh sách các quy tắc lọc gói tin (ACL) thực tế trên Firewall}
+    \label{fig:firewall_rules}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "h3 ssh 10.10.10.11" (sẽ bị treo/drop) 
+    % và "h1 curl 10.10.10.11:80" (thành công). Chụp cả 2 kết quả đối lập.
+    % Lưu vào image/acl_verify.png.
+    % \includegraphics[width=0.8\textwidth]{image/acl_verify.png}
+    \caption{Kiểm chứng ACL: h1 (vùng 10.x) truy cập Web thành công, h3 (vùng 20.x) bị chặn SSH}
+    \label{fig:acl_verify}
+\end{figure}

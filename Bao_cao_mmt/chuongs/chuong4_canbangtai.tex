@@ -21,4 +21,13 @@ Việc chuyển đổi luồng dữ liệu này hoàn toàn trong suốt (transp
     \label{fig:lb_chart}
 \end{figure}
 
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "test_lb" trong Mininet CLI. Chụp màn hình Terminal 
+    % lúc xuất hiện dòng ">> CHUYEN -> web2". Lưu vào image/lb_cli_output.png.
+    % \includegraphics[width=0.8\textwidth]{image/lb_cli_output.png}
+    \caption{Nhật ký hệ thống (CLI Log) ghi lại thời điểm tự động chuyển luồng DNAT}
+    \label{fig:lb_cli}
+\end{figure}
+
 \textit{Phân tích đồ thị (Hình \ref{fig:lb_chart}):} Được vẽ bằng thư viện Matplotlib (Python). Đường màu xanh biểu diễn phần trăm tải trên Web1. Khi đường này cắt ngang mức 80\% (đường gạch đứt màu đỏ), hệ thống lập tức ghi nhận một hành động "Switch" (Chuyển đổi). Lúc này, lưu lượng trên Web2 (đường nét đứt màu cam) bắt đầu tăng vọt do phải tiếp nhận các luồng kết nối mới được Firewall bẻ lái sang. Khi tải Web1 giảm chạm mốc 20\% (đường đứt nét xanh lá), biểu đồ lại hiển thị thêm một lần "Switch" để khôi phục cấu hình như ban đầu. Kịch bản thực nghiệm này chứng minh tính đúng đắn và thời gian đáp ứng cực nhanh của cơ chế tự động hóa mạng (Network Automation).
