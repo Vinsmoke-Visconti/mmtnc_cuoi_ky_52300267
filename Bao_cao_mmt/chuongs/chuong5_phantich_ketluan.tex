@@ -47,11 +47,20 @@ Một trong những tác dụng phụ khó chịu nhất của PAT Overload là 
     \label{tab:troubleshoot_nat}
 \end{table}
 
+\subsection{Phân tích tính hiệu quả của kiến trúc mạng Campus 3 lớp}
+Việc áp dụng mô hình Campus 3-Tier (Core-Dist-Acc) kết hợp HA Link đã chứng minh được tính ưu việt vượt trội so với các mô hình mạng phẳng (Flat) truyền thống:
+\begin{itemize}
+    \item \textbf{Khả năng mở rộng (Scalability):} Khi cần thêm các phòng ban mới, quản trị viên chỉ cần thêm các Switch Access vào lớp Distribution mà không làm ảnh hưởng đến cấu hình của Core hay Firewall. OSPF sẽ tự động lo phần cập nhật tuyến đường.
+    \item \textbf{Độ tin cậy (Resiliency):} Nhờ có đường link dự phòng HA và OSPF, hệ thống đạt được thời gian Uptime cực cao. Việc mất một đường link không còn là thảm họa làm ngưng trệ toàn bộ hoạt động của doanh nghiệp.
+    \item \textbf{Bảo mật chiều sâu (Defense-in-Depth):} Bằng cách kết hợp ACL tại Firewall và phân chia mạng thành các VLAN/Subnet riêng biệt, hacker nếu chiếm được một máy trạm Inside cũng khó lòng "pivot" sang các vùng nhạy cảm khác hoặc tấn công vào DMZ nhờ các bộ lọc đã được thiết lập chặt chẽ.
+\end{itemize}
+
 \subsection{Kết luận và Hướng phát triển}
-Đồ án đã mô phỏng thành công mạng Campus 3 lớp tiêu chuẩn tích hợp đầy đủ OSPF, PAT/Static NAT, và bảo vệ hạ tầng bằng cơ chế ACL. Thuật toán cân bằng tải bằng Python được kiểm chứng thực tế bằng các số liệu biểu đồ tin cậy.
+Đồ án đã mô phỏng thành công một hệ thống mạng Campus 3 lớp tiêu chuẩn, đáp ứng đầy đủ các tiêu chí từ cơ bản đến chuyên sâu (Mức 3). Hệ thống không chỉ dừng lại ở việc kết nối thông thường mà còn tích hợp các công nghệ hiện đại như: Định tuyến động OSPF với khả năng HA, Bảo mật biên bằng Firewall/NAT/ACL, và đặc biệt là cơ chế tự động hóa mạng (Network Automation) thông qua Script Python để cân bằng tải và giám sát an ninh trực quan (Heatmap).
 
 \textbf{Hướng phát triển tương lai:}
 \begin{itemize}
     \item Triển khai thuật toán cân bằng tải phức tạp hơn (như Round-Robin hoặc Least-Connection) trên nền tảng Nginx/HAProxy thay vì dùng Iptables ở lớp mạng.
     \item Áp dụng SDN (Software Defined Networking) với giao thức OpenFlow để điều khiển tập trung luồng dữ liệu thay vì cấu hình tĩnh lẻ tẻ trên từng Switch.
+    \item Tích hợp hệ thống phát hiện xâm nhập (IDS/IPS) như Snort để tự động cập nhật các rule ACL khi phát hiện dấu hiệu tấn công bất thường.
 \end{itemize}

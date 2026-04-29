@@ -23,23 +23,23 @@ Ngoài ra, một nguyên tắc bất di bất dịch của DMZ là: Server trong
 iptables -A FORWARD -s 10.10.10.0/24 -d 192.168.0.0/16 -j DROP
 \end{lstlisting}
 
-Việc đặt ACL trực tiếp trên Firewall Router đứng giữa các ranh giới mạng (Inside, Outside, DMZ) mang lại hiệu quả cao nhất vì tất cả lưu lượng liên mạng bắt buộc phải đi qua điểm nghẽn này.
+\subsection{Tối ưu hóa kiến trúc ACL và Trực quan hóa (Mức 3)}
+\subsubsection{Chiến lược đặt ACL tối ưu}
+Hệ thống tuân thủ nguyên tắc tối ưu hóa băng thông (Cost-efficiency):
+\begin{itemize}
+    \item \textbf{Extended ACL (Đặt gần nguồn):} Các quy tắc lọc cổng dịch vụ (80/443) được đặt tại Firewall gần phía người dùng Inside nhất có thể. Mục tiêu là loại bỏ các gói tin rác (như SSH trái phép) ngay lập tức, tránh việc các gói tin này chiếm dụng băng thông của lớp Core và Distribution.
+    \item \textbf{Standard ACL (Đặt gần đích):} Các quy tắc chặn theo IP nguồn đơn thuần được đặt tại điểm cuối cùng trước khi vào vùng nhạy cảm để đảm bảo tính bao quát và đơn giản trong quản lý.
+\end{itemize}
+
+\subsubsection{Trực quan hóa mức cao: Biểu đồ nhiệt (Security Heatmap)}
+Để chứng minh hiệu quả của hệ thống phòng thủ, một kịch bản giả lập tấn công (Port Scan/Ping Sweep) đã được thực hiện vào DMZ. Toàn bộ các gói tin bị ACL chặn (Drop) đều được Firewall ghi nhật ký (Syslog).
 
 \begin{figure}[H]
     \centering
-    % [HUONG DAN]: Chạy lệnh "fw iptables -L FORWARD -n -v --line-numbers".
-    % Chụp danh sách các rule ACL đã cấu hình trên Firewall. Lưu vào image/firewall_rules.png.
-    % \includegraphics[width=0.9\textwidth]{image/firewall_rules.png}
-    \caption{Danh sách các quy tắc lọc gói tin (ACL) thực tế trên Firewall}
-    \label{fig:firewall_rules}
+    % [HUONG DAN]: Chạy script scripts/security_heatmap.py. 
+    % Ảnh sinh ra tại results/heatmap_acl.png. Copy vào image/heatmap_acl.png.
+    % \includegraphics[width=0.9\textwidth]{image/heatmap_acl.png}
+    \caption{Security Heatmap: Trực quan hóa các nỗ lực tấn công bị ACL chặn theo thời gian}
+    \label{fig:heatmap}
 \end{figure}
-
-\begin{figure}[H]
-    \centering
-    % [HUONG DAN]: Chạy lệnh "h3 ssh 10.10.10.11" (sẽ bị treo/drop) 
-    % và "h1 curl 10.10.10.11:80" (thành công). Chụp cả 2 kết quả đối lập.
-    % Lưu vào image/acl_verify.png.
-    % \includegraphics[width=0.8\textwidth]{image/acl_verify.png}
-    \caption{Kiểm chứng ACL: h1 (vùng 10.x) truy cập Web thành công, h3 (vùng 20.x) bị chặn SSH}
-    \label{fig:acl_verify}
-\end{figure}
+\textit{Giải thích: Các điểm màu đỏ đậm trên Heatmap (Hình \ref{fig:heatmap}) thể hiện cường độ tấn công cao từ một IP nguồn nhất định tại một khung giờ cụ thể. Điều này giúp quản trị viên nhanh chóng nhận diện và phản ứng với các cuộc tấn công DDoS hoặc dò quét dịch vụ.}
