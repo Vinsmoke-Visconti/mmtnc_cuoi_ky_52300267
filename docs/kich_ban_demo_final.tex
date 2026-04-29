@@ -46,6 +46,27 @@
 \tableofcontents
 \newpage
 
+\section*{DANH MỤC CÁC CÂU LỆNH DEMO (DÁN NHANH)}
+\addcontentsline{toc}{section}{DANH MỤC CÁC CÂU LỆNH DEMO (DÁN NHANH)}
+Dưới đây là bảng tổng hợp các lệnh quan trọng nhất. Khi dán vào Mininet CLI, hãy đảm bảo không có khoảng trắng thừa.
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.5}
+    \begin{tabular}{|p{0.3\textwidth}|p{0.65\textwidth}|}
+    \hline
+    \rowcolor{backcolour} \textbf{Phân nhóm} & \textbf{Câu lệnh thực thi trên Mininet CLI} \\ \hline
+    \textbf{Kiểm tra Neighbor OSPF} & \texttt{fw vtysh --vty\_socket /tmp/frr\_fw -c "show ip ospf neighbor"} \\ \hline
+    \textbf{Bảng định tuyến Core} & \texttt{core vtysh --vty\_socket /tmp/frr\_core -c "show ip route"} \\ \hline
+    \textbf{Cân bằng tải (Load Bal)} & \texttt{test\_lb} \\ \hline
+    \textbf{Đo hiệu năng (Perf)} & \texttt{test\_perf} \\ \hline
+    \textbf{Kiểm tra NAT/ACL} & \texttt{test\_nat} \\ \hline
+    \textbf{Ping VLAN 10 sang 20} & \texttt{h1 ping -c 4 192.168.20.11} \\ \hline
+    \textbf{Truy cập Web từ Ext} & \texttt{ext curl -s 100.0.0.11:80} \\ \hline
+    \end{tabular}
+    \caption{Bảng tra cứu nhanh các câu lệnh chính}
+\end{table}
+
 \section{PHẦN 1: KHỞI ĐỘNG VÀ ĐỐI CHIẾU KIẾN TRÚC MẠNG (MỨC 2 \& MỨC 3)}
 
 \subsection{1. Khởi động hệ thống}
@@ -72,9 +93,15 @@ sudo python3 main_topology.py
 
 \subsection{1. Ping liên mạng nội bộ (Inside to Inside)}
 \textbf{Thao tác (Mininet CLI):}
-\begin{lstlisting}[language=bash]
-mininet> h1 ping -c 1 h3
-\end{lstlisting}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|p{0.6\textwidth}|}
+    \hline
+    \rowcolor{backcolour} \textbf{Mô tả} & \textbf{Câu lệnh} \\ \hline
+    Ping từ h1 sang h3 & \texttt{h1 ping -c 4 192.168.20.11} \\ \hline
+    \end{tabular}
+\end{table}
 \textbf{Lời thoại trình bày luồng gói tin:}
 "Khi h1 (192.168.10.11) ping h3 (192.168.20.11):
 1. Gói tin đi từ h1 lên Default Gateway là \texttt{dist1}.
@@ -84,9 +111,15 @@ mininet> h1 ping -c 1 h3
 
 \subsection{2. Ping từ Inside ra Internet (Kiểm chứng PAT)}
 \textbf{Thao tác:}
-\begin{lstlisting}[language=bash]
-mininet> h1 ping -c 1 ext
-\end{lstlisting}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|p{0.6\textwidth}|}
+    \hline
+    \rowcolor{backcolour} \textbf{Mô tả} & \textbf{Câu lệnh} \\ \hline
+    Kiểm tra PAT (h1 ra Internet) & \texttt{h1 ping -c 4 203.0.113.1} \\ \hline
+    \end{tabular}
+\end{table}
 \textbf{Lời thoại trình bày luồng gói tin:}
 "Khi h1 ping ext (203.0.113.1):
 1. Gói tin lên \texttt{dist1} $\rightarrow$ \texttt{core} $\rightarrow$ \texttt{fw}.
@@ -95,9 +128,15 @@ mininet> h1 ping -c 1 ext
 
 \subsection{3. Truy cập từ Internet vào DMZ (Kiểm chứng Static NAT)}
 \textbf{Thao tác:}
-\begin{lstlisting}[language=bash]
-mininet> ext curl -s 100.0.0.11:80
-\end{lstlisting}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|p{0.6\textwidth}|}
+    \hline
+    \rowcolor{backcolour} \textbf{Mô tả} & \textbf{Câu lệnh} \\ \hline
+    Truy cập Web qua IP Public & \texttt{ext curl -s 100.0.0.11:80} \\ \hline
+    \end{tabular}
+\end{table}
 \textbf{Lời thoại trình bày luồng gói tin:}
 "Khi ext truy cập IP Public ảo 100.0.0.11:
 1. Gói tin đến cổng ngoài của \texttt{fw}.
@@ -109,11 +148,19 @@ mininet> ext curl -s 100.0.0.11:80
 \section{PHẦN 3: ĐỊNH TUYẾN OSPF VÀ TÍNH SẴN SÀNG CAO HA (MỨC 3)}
 
 \subsection{1. Kiểm tra trạng thái hội tụ OSPF}
-\textbf{Thao tác:}
-\begin{lstlisting}[language=bash]
-mininet> fw vtysh --vty_socket /tmp/frr_fw -c "show ip ospf neighbor"
-mininet> core vtysh --vty_socket /tmp/frr_core -c "show ip route"
-\end{lstlisting}
+\textbf{Thao tác:} Nhập các lệnh sau vào Mininet CLI:
+
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{|l|p{0.7\textwidth}|}
+    \hline
+    \rowcolor{backcolour} \textbf{Node} & \textbf{Câu lệnh kiểm tra OSPF/Routing} \\ \hline
+    Firewall (\texttt{fw}) & \texttt{fw vtysh --vty\_socket /tmp/frr\_fw -c "show ip ospf neighbor"} \\ \hline
+    Core (\texttt{core}) & \texttt{core vtysh --vty\_socket /tmp/frr\_core -c "show ip route"} \\ \hline
+    \end{tabular}
+\end{table}
+
 \textbf{Lời thoại:} "Tất cả các Router đều đạt trạng thái \textbf{Full}, chứng tỏ OSPF Area 0 đã hội tụ hoàn toàn. Bảng định tuyến của Core hiện đầy đủ các tuyến đường chữ 'O' (học từ OSPF)."
 
 \subsection{2. Demo cơ chế dự phòng HA (Failover)}
@@ -131,14 +178,17 @@ Hệ thống mất khoảng \textbf{3.4 giây} để hội tụ lại. OSPF đã
 
 \subsection{1. Kiểm chứng Extended ACL và Standard ACL (Mức 2)}
 \textbf{Thao tác:}
-\begin{lstlisting}[language=bash]
-# 1. Kiem tra Inside vao DMZ (Duoc phep HTTP)
-mininet> h1 curl -s 10.10.10.11:80
-# 2. Kiem tra VLAN 20 (h3) SSH vao DMZ (Bi Drop boi Standard ACL)
-mininet> h3 ssh 10.10.10.11  (Nhan Ctrl+C de ngat neu bi treo)
-# 3. Kiem tra DMZ vao Inside (Bi block 1 chieu)
-mininet> web1 ping -c 1 192.168.10.11
-\end{lstlisting}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|p{0.65\textwidth}|}
+    \hline
+    \rowcolor{backcolour} \textbf{Kịch bản kiểm tra} & \textbf{Câu lệnh} \\ \hline
+    Inside vào Web DMZ (OK) & \texttt{h1 curl -s 10.10.10.11:80} \\ \hline
+    VLAN 20 SSH vào DMZ (Blocked) & \texttt{h3 ssh 10.10.10.11} \\ \hline
+    DMZ vào Inside (Blocked) & \texttt{web1 ping -c 1 192.168.10.11} \\ \hline
+    \end{tabular}
+\end{table}
 \textbf{Lời thoại (Logic Mức 3):}
 "Hệ thống thiết lập Zero-Trust (Default DROP). 
 - \textbf{Extended ACL} (chỉ cho phép port 80/443) được em đặt ngay tại đầu vào của mạng nội bộ để loại bỏ gói tin rác sớm nhất, tiết kiệm băng thông. 

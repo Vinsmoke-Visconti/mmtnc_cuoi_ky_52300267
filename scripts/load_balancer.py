@@ -54,7 +54,8 @@ def _measure_bw(host, duration=1.5):
     Tra ve Mbps.
     """
     def get_bytes():
-        out = host.cmd('cat /sys/class/net/eth0/statistics/rx_bytes 2>/dev/null || echo 0')
+        intf = f"{host.name}-eth0"
+        out = host.cmd(f'cat /sys/class/net/{intf}/statistics/rx_bytes 2>/dev/null || echo 0')
         try: return int(out.strip())
         except: return 0
 

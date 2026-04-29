@@ -21,7 +21,7 @@ def run_test():
         print(">> Step 2: [FAILOVER] Breaking primary link (core-eth1)...")
         t_start = time.time()
         # Simulate link failure
-        subprocess.run(["sudo", "ip", "link", "set", "core-eth1", "down"])
+        subprocess.run(["sudo", "mnexec", "-a", "core", "ip", "link", "set", "core-eth1", "down"])
         print(f"!! Link Core-Dist1 is DOWN at {datetime.now().strftime('%H:%M:%S')}")
         
         print(">> Step 3: Monitoring OSPF convergence...")
@@ -31,7 +31,7 @@ def run_test():
         time.sleep(10)
         
         print(">> Step 4: [RECOVERY] Bringing primary link back UP...")
-        subprocess.run(["sudo", "ip", "link", "set", "core-eth1", "up"])
+        subprocess.run(["sudo", "mnexec", "-a", "core", "ip", "link", "set", "core-eth1", "up"])
         
         ping_proc.terminate()
         
@@ -45,7 +45,7 @@ def run_test():
         print(f"!! Error: {e}")
     finally:
         # Ensure link is up
-        subprocess.run(["sudo", "ip", "link", "set", "core-eth1", "up"])
+        subprocess.run(["sudo", "mnexec", "-a", "core", "ip", "link", "set", "core-eth1", "up"])
 
 if __name__ == "__main__":
     run_test()
