@@ -7,10 +7,15 @@ Kiem tra NAT/ACL va in bang nhật ký sự cố.
 Chay trong Mininet CLI:
   py exec(open('scripts/nat_acl_test.py').read(), globals()); run_nat_acl_test(net)
 """
-import os, re, time, json
+import os, re, time, json, sys
 from datetime import datetime
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+try:
+    from scripts import utils
+except ImportError:
+    import utils as utils
 
-RESULTS_DIR = 'results'
+RESULTS_DIR = utils.get_session_dir()
 
 def ensure_dir():
     os.makedirs(RESULTS_DIR, exist_ok=True)

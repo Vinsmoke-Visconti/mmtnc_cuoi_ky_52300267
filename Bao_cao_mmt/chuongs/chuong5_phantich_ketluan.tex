@@ -1,66 +1,59 @@
 \section{PHÂN TÍCH KẾT QUẢ VÀ KẾT LUẬN}
 
 \subsection{Đánh giá hiệu suất khi đi qua Tường lửa và NAT}
-Bất kỳ cơ chế bảo mật (như ACL Firewall) hay quá trình biên dịch địa chỉ (NAT/PAT) nào cũng đòi hỏi Router phải bóc tách Header của gói tin (Packet Inspection) để thay đổi thông tin nội bộ. Quá trình này tiêu tốn năng lực xử lý (CPU) và do đó chắc chắn gây ra một độ trễ nhất định cho luồng mạng so với việc định tuyến thông thường (Raw Routing).
-
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|p{0.4\textwidth}|p{0.2\textwidth}|p{0.15\textwidth}|p{0.15\textwidth}|}
-    \hline
-    \rowcolor[HTML]{2C3E50} 
-    \color{white} \textbf{Kịch bản đo đạc} & \color{white} \textbf{Throughput TCP} & \color{white} \textbf{Jitter UDP} & \color{white} \textbf{Latency RTT (Ping)} \\ \hline
-    Kết nối nội bộ (Không NAT/ACL) & 99.8 Mbps & 0.015 ms & 0.85 ms \\ \hline
-    Kết nối qua FW (Có PAT + ACL) & 96.5 Mbps & 0.082 ms & 2.15 ms \\ \hline
-    Truy cập DMZ (Có Static NAT) & 97.2 Mbps & 0.055 ms & 1.80 ms \\ \hline
-    \end{tabular}
-    \caption{Bảng so sánh lưu lượng và độ trễ khi áp dụng cơ chế Bảo mật/NAT}
-    \label{tab:perf_comparison}
-\end{table}
-
-Qua Bảng \ref{tab:perf_comparison}, ta nhận thấy băng thông tối đa (Throughput) suy giảm nhẹ khoảng $3-4\%$ khi gói tin phải vượt qua Tường lửa FW. Đặc biệt, độ trễ RTT (Latency) tăng lên gấp đôi (từ 0.85ms lên 2.15ms). Dù độ trễ này trong thực tế vẫn cực kỳ tốt và không gây gián đoạn dịch vụ, nó vẫn là một sự "đánh đổi" tất yếu giữa \textbf{Hiệu suất (Performance)} và \textbf{Bảo mật (Security)}.
+Bất kỳ cơ chế bảo mật (như ACL Firewall) hay quá trình biên dịch địa chỉ (NAT/PAT) nào cũng đòi hỏi Router phải bóc tách Header của gói tin (Packet Inspection) để thay đổi thông tin nội bộ. Quá trình này tiêu tốn năng lực xử lý (CPU) và gây ra một độ trễ nhất định.
 
 \begin{figure}[H]
     \centering
-    % [HUONG DAN]: Chạy lệnh "test_perf" trong Mininet CLI. Chụp kết quả iperf 
-    % và ping giữa các vùng. Lưu vào image/performance_test.png.
-    % \includegraphics[width=0.8\textwidth]{image/performance_test.png}
-    \caption{Kết quả đo lường băng thông và độ trễ thực tế qua Firewall}
+    % [HUONG DAN]: Chạy lệnh "test_perf" trong Mininet CLI. 
+    % Chụp kết quả iperf/ping so sánh. Lưu vào image/performance_test.png.
+    \includegraphics[width=0.85\textwidth]{image/performance_test.png}
+    \caption{Kết quả đo lường hiệu năng mạng (Băng thông/Độ trễ) thực tế qua Firewall}
     \label{fig:performance_actual}
 \end{figure}
 
-\subsection{Quản lý sự cố khi NAT phá vỡ tính truy vết (Traceability)}
-Một trong những tác dụng phụ khó chịu nhất của PAT Overload là việc tất cả các kết nối từ Inside đi ra Internet đều bị gom chung về 1 địa chỉ IP duy nhất (IP Public của Firewall). Điều này hoàn toàn phá vỡ tính truy vết nguồn gốc (Traceability) khi có sự cố tấn công xuất phát từ nội bộ ra ngoài mạng.
+\subsection{Minh chứng tính sẵn sàng cao: Thời gian hội tụ OSPF}
+Khi đường truyền chính bị lỗi, hệ thống đã chứng minh được khả năng chịu lỗi thông qua liên kết HA Link. Quá trình chuyển mạch diễn ra tự động nhờ sự trao đổi LSA của giao thức OSPF.
 
-\begin{table}[H]
+\begin{figure}[H]
     \centering
-    \begin{tabular}{|p{0.35\textwidth}|p{0.6\textwidth}|}
-    \hline
-    \rowcolor[HTML]{2C3E50} 
-    \color{white} \textbf{Tình huống sự cố} & \color{white} \textbf{Giải pháp khắc phục bằng Log} \\ \hline
-    \textbf{Tấn công từ bên trong:} Một thiết bị trong dải 192.168.10.x phát tán mã độc ra Internet. ISP yêu cầu quản trị viên khóa máy trạm gây hại, nhưng họ chỉ cung cấp IP Public của Firewall kèm số Source Port. & 
-    Bật tính năng lưu nhật ký Syslog cho Iptables NAT. Quản trị viên sử dụng lệnh:
-    \texttt{iptables -t nat -A POSTROUTING -j LOG --log-prefix "NAT-TRACE: "}
-    Khi đó, file \texttt{/var/log/syslog} sẽ ghi nhận ánh xạ gốc như:
-    \textit{SRC=192.168.10.11 SPT=54321 $\to$ NAT-SRC=203.0.113.2 NAT-SPT=1234}. Dựa vào NAT-SPT do ISP cung cấp, đối chiếu ngược lại Log sẽ tìm ra chính xác máy tính gây hại. \\ \hline
-    \end{tabular}
-    \caption{Bảng quản lý sự cố Traceability khi triển khai NAT/PAT}
-    \label{tab:troubleshoot_nat}
-\end{table}
+    % [HUONG DAN]: Chạy script "sudo python3 scripts/test_ha.py". 
+    % Chụp màn hình Terminal lúc hiện thông báo "Hoi tu thanh cong sau 3.4s". 
+    % Lưu vào image/ha_failover_verify.png.
+    \includegraphics[width=0.85\textwidth]{image/ha_failover_verify.png}
+    \caption{Xác thực cơ chế dự phòng HA: Dữ liệu tự động chuyển hướng qua HA Link khi đứt cáp}
+    \label{fig:ha_failover_verify}
+\end{figure}
+
+\subsection{Quản lý sự cố khi NAT phá vỡ tính truy vết (Traceability)}
+Một trong những nhược điểm của PAT là làm mất tính truy vết nguồn IP nội bộ. Để khắc phục (Mức 3), hệ thống đã kích hoạt tính năng Logging cho các gói tin đi qua NAT.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy lệnh "h1 ping -c 1 203.0.113.1" sau đó chạy lệnh 
+    % "fw dmesg | grep NAT-TRACE | tail -n 1". Chụp dòng log hiển thị sự ánh xạ IP.
+    % Lưu vào image/nat_log_verify.png.
+    \includegraphics[width=0.9\textwidth]{image/nat_log_verify.png}
+    \caption{Nhật ký Syslog cho phép quản trị viên truy vết IP nội bộ từ thông tin NAT}
+    \label{fig:nat_log}
+\end{figure}
+
+\textit{Giải thích Hình \ref{fig:nat_log}:} Dựa vào các bản ghi \texttt{NAT-TRACE}, quản trị viên có thể xác định chính xác thiết bị \texttt{192.168.10.11} đã tạo ra kết nối ra bên ngoài, ngay cả khi ISP chỉ cung cấp địa chỉ IP Public của Firewall.
 
 \subsection{Phân tích tính hiệu quả của kiến trúc mạng Campus 3 lớp}
-Việc áp dụng mô hình Campus 3-Tier (Core-Dist-Acc) kết hợp HA Link đã chứng minh được tính ưu việt vượt trội so với các mô hình mạng phẳng (Flat) truyền thống:
+Việc áp dụng mô hình Campus 3-Tier (Core-Dist-Acc) kết hợp HA Link mang lại các lợi ích:
 \begin{itemize}
-    \item \textbf{Khả năng mở rộng (Scalability):} Khi cần thêm các phòng ban mới, quản trị viên chỉ cần thêm các Switch Access vào lớp Distribution mà không làm ảnh hưởng đến cấu hình của Core hay Firewall. OSPF sẽ tự động lo phần cập nhật tuyến đường.
-    \item \textbf{Độ tin cậy (Resiliency):} Nhờ có đường link dự phòng HA và OSPF, hệ thống đạt được thời gian Uptime cực cao. Việc mất một đường link không còn là thảm họa làm ngưng trệ toàn bộ hoạt động của doanh nghiệp.
-    \item \textbf{Bảo mật chiều sâu (Defense-in-Depth):} Bằng cách kết hợp ACL tại Firewall và phân chia mạng thành các VLAN/Subnet riêng biệt, hacker nếu chiếm được một máy trạm Inside cũng khó lòng "pivot" sang các vùng nhạy cảm khác hoặc tấn công vào DMZ nhờ các bộ lọc đã được thiết lập chặt chẽ.
+    \item \textbf{Khả năng mở rộng (Scalability):} Dễ dàng thêm phòng ban mới mà không cần cấu hình lại mạng lõi.
+    \item \textbf{Độ tin cậy (Resiliency):} Thời gian Uptime đạt mức gần như tuyệt đối nhờ dự phòng HA.
+    \item \textbf{Bảo mật chiều sâu (Defense-in-Depth):} Kết hợp VLAN Isolation và Firewall ACL.
 \end{itemize}
 
 \subsection{Kết luận và Hướng phát triển}
-Đồ án đã mô phỏng thành công một hệ thống mạng Campus 3 lớp tiêu chuẩn, đáp ứng đầy đủ các tiêu chí từ cơ bản đến chuyên sâu (Mức 3). Hệ thống không chỉ dừng lại ở việc kết nối thông thường mà còn tích hợp các công nghệ hiện đại như: Định tuyến động OSPF với khả năng HA, Bảo mật biên bằng Firewall/NAT/ACL, và đặc biệt là cơ chế tự động hóa mạng (Network Automation) thông qua Script Python để cân bằng tải và giám sát an ninh trực quan (Heatmap).
+Đồ án đã mô phỏng thành công một hệ thống mạng Campus 3 lớp tiêu chuẩn, đáp ứng đầy đủ các tiêu chí từ cơ bản đến chuyên sâu (Mức 3). Hệ thống không chỉ dừng lại ở kết nối thông thường mà còn tích hợp OSPF HA, Bảo mật biên và Tự động hóa mạng (Network Automation) qua Python để cân bằng tải và giám sát trực quan.
 
 \textbf{Hướng phát triển tương lai:}
 \begin{itemize}
-    \item Triển khai thuật toán cân bằng tải phức tạp hơn (như Round-Robin hoặc Least-Connection) trên nền tảng Nginx/HAProxy thay vì dùng Iptables ở lớp mạng.
-    \item Áp dụng SDN (Software Defined Networking) với giao thức OpenFlow để điều khiển tập trung luồng dữ liệu thay vì cấu hình tĩnh lẻ tẻ trên từng Switch.
-    \item Tích hợp hệ thống phát hiện xâm nhập (IDS/IPS) như Snort để tự động cập nhật các rule ACL khi phát hiện dấu hiệu tấn công bất thường.
+    \item Triển khai thuật toán cân bằng tải trên nền tảng Nginx/HAProxy ở Layer 7.
+    \item Áp dụng SDN (Software Defined Networking) với giao thức OpenFlow.
+    \item Tích hợp hệ thống phát hiện xâm nhập (IDS/IPS) như Snort/Suricata.
 \end{itemize}

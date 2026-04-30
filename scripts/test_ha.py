@@ -4,6 +4,13 @@ import sys
 import subprocess
 from datetime import datetime
 
+def get_pid(node_name):
+    try:
+        out = subprocess.check_output(f"ps ax | grep 'mininet:{node_name}' | grep -v grep", shell=True).decode()
+        return out.strip().split()[0]
+    except Exception:
+        return None
+
 def run_test():
     print("=== OSPF HIGH AVAILABILITY & CONVERGENCE TEST ===")
     print(">> Target: Test failover between dist1-core and dist1-dist2-core")
@@ -21,7 +28,11 @@ def run_test():
         print(">> Step 2: [FAILOVER] Breaking primary link (core-eth1)...")
         t_start = time.time()
         # Simulate link failure
-        subprocess.run(["sudo", "mnexec", "-a", "core", "ip", "link", "set", "core-eth1", "down"])
+        core_pid = get_pid("core")
+        if core_pid:
+            subprocess.run(["sudo", "mnexec", "-a", core_pid, "ip", "link", "set", "core-eth1", "down"])
+        else:
+            print("!! Lỗi: Không tìm thấy tiến trình của node core")
         print(f"!! Link Core-Dist1 is DOWN at {datetime.now().strftime('%H:%M:%S')}")
         
         print(">> Step 3: Monitoring OSPF convergence...")
@@ -31,7 +42,8 @@ def run_test():
         time.sleep(10)
         
         print(">> Step 4: [RECOVERY] Bringing primary link back UP...")
-        subprocess.run(["sudo", "mnexec", "-a", "core", "ip", "link", "set", "core-eth1", "up"])
+        if core_pid:
+            subprocess.run(["sudo", "mnexec", "-a", core_pid, "ip", "link", "set", "core-eth1", "up"])
         
         ping_proc.terminate()
         
@@ -45,7 +57,9 @@ def run_test():
         print(f"!! Error: {e}")
     finally:
         # Ensure link is up
-        subprocess.run(["sudo", "mnexec", "-a", "core", "ip", "link", "set", "core-eth1", "up"])
+        core_pid = get_pid("core")
+        if core_pid:
+            subprocess.run(["sudo", "mnexec", "-a", core_pid, "ip", "link", "set", "core-eth1", "up"])
 
 if __name__ == "__main__":
     run_test()

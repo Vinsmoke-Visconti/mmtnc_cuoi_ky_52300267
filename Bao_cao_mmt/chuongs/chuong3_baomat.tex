@@ -1,45 +1,63 @@
 \section{TRIỂN KHAI BẢO MẬT ĐA LỚP}
 
-\subsection{Nguyên tắc thiết kế Tường lửa}
-Hệ thống áp dụng chính sách bảo mật Zero-Trust tại vùng biên. Chính sách mặc định (Default Policy) của chuỗi FORWARD trên iptables được đặt là \texttt{DROP}. Nghĩa là tất cả các gói tin đi xuyên qua Firewall đều bị hủy bỏ trừ khi có một quy tắc (rule) cho phép tường minh.
-
-\subsection{Cấu hình Extended ACL (Lọc dịch vụ)}
-Extended ACL cho phép kiểm soát luồng dữ liệu một cách tinh xảo dựa trên IP nguồn, IP đích, giao thức (TCP/UDP) và số hiệu cổng (Port). Trong mô hình này, vùng DMZ chứa Web Server, do đó các máy trạm từ Inside chỉ được phép truy cập vào DMZ qua Port 80 (HTTP) và Port 443 (HTTPS).
-\begin{lstlisting}[style=powershell]
-# Cho phep cac ket noi tra ve hop le
-iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
-# Extended ACL mo port 80, 443 vao DMZ
-iptables -A FORWARD -s 192.168.10.0/24 -d 10.10.10.0/24 -p tcp --dport 80 -j ACCEPT
-\end{lstlisting}
-
-\subsection{Cấu hình Standard ACL (Lọc nguồn)}
-Để tăng cường bảo mật cho máy chủ, hệ thống thiết lập một Standard ACL nhằm ngăn chặn hoàn toàn việc truy cập dịch vụ quản trị từ xa (SSH - Port 22) từ dải mạng \texttt{192.168.20.0/24} (giả sử đây là dải mạng của khách vãng lai hoặc thiết bị IoT).
-\begin{lstlisting}[style=powershell]
-iptables -A FORWARD -s 192.168.20.0/24 -d 10.10.10.0/24 -p tcp --dport 22 -j DROP
-\end{lstlisting}
-
-Ngoài ra, một nguyên tắc bất di bất dịch của DMZ là: Server trong DMZ không bao giờ được phép khởi tạo kết nối (Initiate Connection) ngược trở lại vùng Inside mạng nội bộ để đề phòng trường hợp Server bị Hacker chiếm quyền điều khiển:
-\begin{lstlisting}[style=powershell]
-iptables -A FORWARD -s 10.10.10.0/24 -d 192.168.0.0/16 -j DROP
-\end{lstlisting}
-
-\subsection{Tối ưu hóa kiến trúc ACL và Trực quan hóa (Mức 3)}
-\subsubsection{Chiến lược đặt ACL tối ưu}
-Hệ thống tuân thủ nguyên tắc tối ưu hóa băng thông (Cost-efficiency):
-\begin{itemize}
-    \item \textbf{Extended ACL (Đặt gần nguồn):} Các quy tắc lọc cổng dịch vụ (80/443) được đặt tại Firewall gần phía người dùng Inside nhất có thể. Mục tiêu là loại bỏ các gói tin rác (như SSH trái phép) ngay lập tức, tránh việc các gói tin này chiếm dụng băng thông của lớp Core và Distribution.
-    \item \textbf{Standard ACL (Đặt gần đích):} Các quy tắc chặn theo IP nguồn đơn thuần được đặt tại điểm cuối cùng trước khi vào vùng nhạy cảm để đảm bảo tính bao quát và đơn giản trong quản lý.
-\end{itemize}
-
-\subsubsection{Trực quan hóa mức cao: Biểu đồ nhiệt (Security Heatmap)}
-Để chứng minh hiệu quả của hệ thống phòng thủ, một kịch bản giả lập tấn công (Port Scan/Ping Sweep) đã được thực hiện vào DMZ. Toàn bộ các gói tin bị ACL chặn (Drop) đều được Firewall ghi nhật ký (Syslog).
+\subsection{Quản trị tập trung bằng Script Tường lửa (acl.sh)}
+Khác với các phương pháp cấu hình thủ công, hệ thống sử dụng một script quản trị tập trung mang tên \texttt{acl.sh}. Cách tiếp cận này giúp Quản trị viên mạng triển khai toàn bộ chính sách bảo mật (ACL, NAT) chỉ bằng một câu lệnh duy nhất và hỗ trợ lệnh \texttt{drop\_acl.sh} để xả sạch các quy tắc khi cần xử lý sự cố.
 
 \begin{figure}[H]
     \centering
-    % [HUONG DAN]: Chạy script scripts/security_heatmap.py. 
-    % Ảnh sinh ra tại results/heatmap_acl.png. Copy vào image/heatmap_acl.png.
-    % \includegraphics[width=0.9\textwidth]{image/heatmap_acl.png}
-    \caption{Security Heatmap: Trực quan hóa các nỗ lực tấn công bị ACL chặn theo thời gian}
-    \label{fig:heatmap}
+    % [HUONG DAN]: Chụp màn hình nội dung file "acl.sh" hoặc lệnh "fw iptables -L FORWARD -n -v --line-numbers".
+    % Lưu vào image/acl_config_list.png
+    \includegraphics[width=0.85\textwidth]{image/acl_config_list.png}
+    \caption{Danh sách các quy tắc ACL được triển khai tập trung trên Firewall}
+    \label{fig:acl_list}
 \end{figure}
-\textit{Giải thích: Các điểm màu đỏ đậm trên Heatmap (Hình \ref{fig:heatmap}) thể hiện cường độ tấn công cao từ một IP nguồn nhất định tại một khung giờ cụ thể. Điều này giúp quản trị viên nhanh chóng nhận diện và phản ứng với các cuộc tấn công DDoS hoặc dò quét dịch vụ.}
+
+\subsection{Cấu hình và Kiểm chứng Extended ACL (Lọc dịch vụ)}
+Hệ thống áp dụng chính sách bảo mật Zero-Trust. Vùng DMZ chứa Web Server chỉ được phép nhận luồng HTTP/HTTPS từ mạng nội bộ.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình lệnh "h1 curl -s 10.10.10.11:80". Lưu vào image/acl_extended_ok.png
+    \includegraphics[width=0.7\textwidth]{image/acl_extended_ok.png}
+    \caption{Kiểm chứng Extended ACL: h1 truy cập dịch vụ Web (Port 80) thành công}
+    \label{fig:acl_ext_ok}
+\end{figure}
+
+\subsection{Cấu hình và Kiểm chứng Standard ACL (Lọc nguồn)}
+Để ngăn chặn các nguy cơ từ dải mạng khách hoặc thiết bị IoT, hệ thống chặn hoàn toàn quyền SSH (Port 22) từ Tầng 2 vào DMZ.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình lệnh "h3 ssh 10.10.10.11" (bị treo/timeout). Lưu vào image/acl_standard_drop.png
+    \includegraphics[width=0.7\textwidth]{image/acl_standard_drop.png}
+    \caption{Kiểm chứng Standard ACL: h3 bị chặn hoàn toàn khi cố gắng SSH vào Server}
+    \label{fig:acl_std_drop}
+\end{figure}
+
+\subsection{Cô lập vùng DMZ (DMZ Isolation)}
+Một nguyên tắc bảo mật quan trọng là Server DMZ không được phép chủ động khởi tạo kết nối vào Inside để phòng ngừa tấn công leo thang (Pivot).
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình lệnh "web1 ping -c 1 192.168.10.11" (bị chặn). Lưu vào image/dmz_isolation.png
+    \includegraphics[width=0.7\textwidth]{image/dmz_isolation.png}
+    \caption{Xác thực tính cô lập: Server DMZ không thể kết nối ngược vào mạng nội bộ}
+    \label{fig:dmz_iso}
+\end{figure}
+
+\subsection{Tối ưu hóa kiến trúc ACL và Trực quan hóa (Mức 3)}
+Hệ thống tuân thủ nguyên tắc tối ưu hóa băng thông bằng cách đặt Extended ACL gần nguồn và Standard ACL gần đích. Đặc biệt, cơ chế Logging được kích hoạt cho mọi gói tin bị Drop.
+
+\subsection{Trực quan hóa An ninh mạng bằng Biểu đồ nhiệt (Security Heatmap)}
+Dữ liệu log từ Firewall được script Python (\texttt{security\_heatmap.py}) xử lý để tạo ra Biểu đồ nhiệt (Heatmap), giúp nhận diện cường độ tấn công theo thời gian thực.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy script "sudo python3 scripts/security_heatmap.py". 
+    % Lấy ảnh "results/heatmap_acl.png" chèn vào đây.
+    \includegraphics[width=0.9\textwidth]{results/heatmap_acl.png}
+    \caption{Biểu đồ nhiệt Heatmap thể hiện cường độ các cuộc tấn công bị ACL chặn (Mức 3)}
+    \label{fig:heatmap_security}
+\end{figure}
+
+\textit{Phân tích Hình \ref{fig:heatmap_security}:} Trục tung hiển thị địa chỉ IP nguồn (như mạng 192.168.20.x). Màu sắc càng đậm thể hiện số lượng gói tin bị chặn càng cao. Đây là minh chứng cho khả năng cung cấp thông tin tình báo an ninh (Threat Intelligence) cho quản trị viên, giúp nhanh chóng nhận diện các nỗ lực dò quét cổng (Port Scan) từ các thiết bị nội bộ bị nhiễm mã độc hoặc từ bên ngoài Internet.

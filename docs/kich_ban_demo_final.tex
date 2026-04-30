@@ -9,29 +9,33 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{geometry}
-\geometry{a4paper, margin=1in}
+\usepackage{colortbl}
+\usepackage[most]{tcolorbox}
 
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\geometry{a4paper, margin=0.8in}
+
 \definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\definecolor{outputback}{rgb}{0.1,0.1,0.1}
+
+\newtcolorbox{expectedoutput}[1][]{
+  colback=outputback,
+  colupper=white,
+  colframe=gray!50!black,
+  title=\textbf{KẾT QUẢ DỰ KIẾN (EXPECTED OUTPUT)},
+  fonttitle=\bfseries,
+  enhanced,
+  breakable,
+  sharp corners,
+  boxrule=1pt,
+  #1
+}
 
 \lstdefinestyle{mystyle}{
     backgroundcolor=\color{backcolour},   
-    commentstyle=\color{codegray},
-    keywordstyle=\color{magenta},
-    numberstyle=\tiny\color{codegray},
-    stringstyle=\color{codepurple},
-    basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
-    showstringspaces=false,
-    showtabs=false,                  
-    tabsize=2
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=none
 }
 \lstset{style=mystyle}
 
@@ -39,231 +43,93 @@
 
 \begin{center}
     \Large\textbf{KỊCH BẢN DEMO BẢO VỆ ĐỒ ÁN MẠNG MÁY TÍNH NÂNG CAO} \\
-    \vspace{0.5cm}
+    \vspace{0.3cm}
     \normalsize\textit{(Kịch bản chi tiết đạt 100\% tiêu chí Mức 2 và Mức 3)}
 \end{center}
 
 \tableofcontents
 \newpage
 
-\section*{DANH MỤC CÁC CÂU LỆNH DEMO (DÁN NHANH)}
-\addcontentsline{toc}{section}{DANH MỤC CÁC CÂU LỆNH DEMO (DÁN NHANH)}
-Dưới đây là bảng tổng hợp các lệnh quan trọng nhất. Khi dán vào Mininet CLI, hãy đảm bảo không có khoảng trắng thừa.
+\section{GIAI ĐOẠN 1: ĐỐI CHIẾU CẤU HÌNH VỚI TOPOLOGY}
+\textit{Mục tiêu: Chứng minh thiết bị được cấu hình đúng IP và đúng lớp theo sơ đồ thiết kế.}
 
-\begin{table}[H]
-    \centering
-    \renewcommand{\arraystretch}{1.5}
-    \begin{tabular}{|p{0.3\textwidth}|p{0.65\textwidth}|}
-    \hline
-    \rowcolor{backcolour} \textbf{Phân nhóm} & \textbf{Câu lệnh thực thi trên Mininet CLI} \\ \hline
-    \textbf{Kiểm tra Neighbor OSPF} & \texttt{fw vtysh --vty\_socket /tmp/frr\_fw -c "show ip ospf neighbor"} \\ \hline
-    \textbf{Bảng định tuyến Core} & \texttt{core vtysh --vty\_socket /tmp/frr\_core -c "show ip route"} \\ \hline
-    \textbf{Cân bằng tải (Load Bal)} & \texttt{test\_lb} \\ \hline
-    \textbf{Đo hiệu năng (Perf)} & \texttt{test\_perf} \\ \hline
-    \textbf{Kiểm tra NAT/ACL} & \texttt{test\_nat} \\ \hline
-    \textbf{Ping VLAN 10 sang 20} & \texttt{h1 ping -c 4 192.168.20.11} \\ \hline
-    \textbf{Truy cập Web từ Ext} & \texttt{ext curl -s 100.0.0.11:80} \\ \hline
-    \end{tabular}
-    \caption{Bảng tra cứu nhanh các câu lệnh chính}
-\end{table}
+\subsection{1. Kiểm tra IP trên Firewall (Cửa ngõ biên)}
+\textbf{Câu lệnh:} \texttt{fw ip addr show fw-eth0} và \texttt{fw ip addr show fw-eth1}
+\begin{expectedoutput}
+fw-eth0: 203.0.113.2/30 (Nối Internet - ext) \\
+fw-eth1: 172.16.0.1/30  (Nối Backbone - core)
+\end{expectedoutput}
+\textbf{Lời thoại:} "Thưa thầy cô, cổng eth0 của Firewall khớp với dải IP Public nối ra ISP, cổng eth1 nối vào mạng lõi nội bộ đúng như sơ đồ."
 
-\section{PHẦN 1: KHỞI ĐỘNG VÀ ĐỐI CHIẾU KIẾN TRÚC MẠNG (MỨC 2 \& MỨC 3)}
+\subsection{2. Kiểm tra IP trên các Router Lớp Distribution}
+\textbf{Câu lệnh:} \texttt{dist1 ip addr show dist1-eth1}
+\begin{expectedoutput}
+dist1-eth1: 192.168.10.1/24 (Gateway cho Tầng 1)
+\end{expectedoutput}
+\textbf{Lời thoại:} "Router dist1 đóng vai trò Default Gateway cho Tầng 1 (VLAN 10). Tương tự dist2 là gateway cho Tầng 2."
 
-\subsection{1. Khởi động hệ thống}
-\textbf{Thao tác:} Mở Terminal tại thư mục \texttt{mmtnc\_cuoi\_ky\_52300267} và chạy lệnh:
-\begin{lstlisting}[language=bash]
-sudo python3 main_topology.py
-\end{lstlisting}
-Đợi hệ thống khởi tạo các node, gán IP, cấu hình NAT, và chờ 30 giây để OSPF hội tụ. Màn hình sẽ hiện ra dấu nhắc \texttt{mininet>}.
+\section{GIAI ĐOẠN 2: KIỂM TRA ĐỊNH TUYẾN OSPF VÀ HA (MỨC 3)}
 
-\subsection{2. Trình bày sự khớp nối với đề bài}
-\textbf{Lời thoại trình bày:}
-"Thưa thầy/cô, hệ thống của em được thiết kế chuẩn theo mô hình \textbf{Campus 3 lớp} có tích hợp DMZ, đáp ứng toàn bộ yêu cầu của đề bài:
-\begin{itemize}
-    \item \textbf{Lớp Access:} Gồm 2 switch \texttt{s2}, \texttt{s3} kết nối người dùng thuộc 2 VLAN 192.168.10.0/24 và 192.168.20.0/24.
-    \item \textbf{Lớp Distribution:} Gồm \texttt{dist1} và \texttt{dist2} làm Default Gateway. \textit{(Điểm Mức 3: Em đặt Layer 3 tại đây để giới hạn Broadcast Domain, giảm tải cho switch Access).}
-    \item \textbf{Lớp Core:} Router \texttt{core} đảm nhận chuyển mạch tốc độ cao.
-    \item \textbf{Vùng DMZ:} Tách biệt vật lý thông qua \texttt{s1}, chứa Web1 và Web2.
-    \item \textbf{Biên mạng (Edge):} Router \texttt{fw} thực hiện NAT, ACL và giám sát bảo mật.
-    \item \textbf{Tính sẵn sàng cao (HA - Mức 3):} Em thiết kế thêm một đường \textbf{HA Link} nối trực tiếp giữa \texttt{dist1} và \texttt{dist2} để dự phòng sự cố."
-\end{itemize}
+\subsection{1. Trạng thái hội tụ OSPF}
+\textbf{Câu lệnh:} \texttt{fw vtysh --vty_socket /tmp/frr_fw -c "show ip ospf neighbor"}
+\begin{expectedoutput}
+Neighbor ID      Pri   State           Up Time     Address         Interface
+10.255.1.1         1   Full/-          05:12:44    172.16.0.2      fw-eth1
+\end{expectedoutput}
+\textbf{Lời thoại: } "Trạng thái \textbf{Full} chứng tỏ Firewall và Core đã trao đổi bảng định tuyến thành công."
+
+\subsection{2. Kiểm tra bảng định tuyến tại Core}
+\textbf{Câu lệnh:} \texttt{core vtysh --vty_socket /tmp/frr_core -c "show ip route ospf"}
+\begin{expectedoutput}
+O>* 192.168.10.0/24 [110/20] via 172.16.1.2, core-eth1 \\
+O>* 192.168.20.0/24 [110/20] via 172.16.2.2, core-eth2 \\
+O>* 172.16.3.0/30   [110/20] via 172.16.1.2, core-eth1 \\
+\hspace*{4cm} * via 172.16.2.2, core-eth2 (ECMP)
+\end{expectedoutput}
+\textbf{Lời thoại: } "Core Router đã học được toàn bộ các mạng con thông qua OSPF. Đặc biệt đường HA Link (172.16.3.0) có 2 đường đi song song, chứng minh tính sẵn sàng cao."
 
 \newpage
-\section{PHẦN 2: KIỂM TRA KẾT NỐI VÀ PHÂN TÍCH LUỒNG GÓI TIN (MỨC 2)}
+\section{GIAI ĐOẠN 3: KIỂM TRA BẢO MẬT VÀ NAT (MỨC 2 \& 3)}
 
-\subsection{1. Ping liên mạng nội bộ (Inside to Inside)}
-\textbf{Thao tác (Mininet CLI):}
+\subsection{1. Kiểm tra NAT/PAT (Inside ra Internet)}
+\textbf{Câu lệnh:} \texttt{h1 ping -c 3 203.0.113.1}
+\begin{expectedoutput}
+64 bytes from 203.0.113.1: icmp_seq=1 ttl=61 time=15.2 ms \\
+(Ping thành công ra ISP)
+\end{expectedoutput}
+\textbf{Lời thoại: } "Dù h1 dùng IP Private nhưng vẫn ra được Internet nhờ cơ chế PAT (Masquerade) tại Firewall."
 
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|l|p{0.6\textwidth}|}
-    \hline
-    \rowcolor{backcolour} \textbf{Mô tả} & \textbf{Câu lệnh} \\ \hline
-    Ping từ h1 sang h3 & \texttt{h1 ping -c 4 192.168.20.11} \\ \hline
-    \end{tabular}
-\end{table}
-\textbf{Lời thoại trình bày luồng gói tin:}
-"Khi h1 (192.168.10.11) ping h3 (192.168.20.11):
-1. Gói tin đi từ h1 lên Default Gateway là \texttt{dist1}.
-2. \texttt{dist1} tra bảng định tuyến OSPF, đẩy lên \texttt{core}.
-3. \texttt{core} nhận thấy mạng đích nằm ở nhánh \texttt{dist2}, đẩy gói tin xuống \texttt{dist2}.
-4. \texttt{dist2} đẩy xuống switch Access 2 và tới h3. Gói tin phản hồi đi ngược lại tương tự."
+\subsection{2. Kiểm tra Static NAT (Từ ngoài vào DMZ)}
+\textbf{Câu lệnh:} \texttt{ext curl -s 100.0.0.11:80}
+\begin{expectedoutput}
+<h1>Server web1 - 10.10.10.11</h1>
+\end{expectedoutput}
+\textbf{Lời thoại: } "External truy cập IP Public 100.0.0.11, Firewall tự động DNAT về IP nội bộ 10.10.10.11 của Web1."
 
-\subsection{2. Ping từ Inside ra Internet (Kiểm chứng PAT)}
-\textbf{Thao tác:}
+\subsection{3. Kiểm chứng ACL chặn truy cập trái phép}
+\textbf{Câu lệnh:} \texttt{h3 ssh 10.10.10.11}
+\begin{expectedoutput}
+(Lệnh bị treo - Không có phản hồi) \\
+Hoặc: ssh: connect to host 10.10.10.11 port 22: Connection timed out
+\end{expectedoutput}
+\textbf{Lời thoại: } "Theo chính sách bảo mật, mạng Tầng 2 (h3) bị cấm SSH vào DMZ. ACL đã Drop gói tin này đúng như thiết kế."
 
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|l|p{0.6\textwidth}|}
-    \hline
-    \rowcolor{backcolour} \textbf{Mô tả} & \textbf{Câu lệnh} \\ \hline
-    Kiểm tra PAT (h1 ra Internet) & \texttt{h1 ping -c 4 203.0.113.1} \\ \hline
-    \end{tabular}
-\end{table}
-\textbf{Lời thoại trình bày luồng gói tin:}
-"Khi h1 ping ext (203.0.113.1):
-1. Gói tin lên \texttt{dist1} $\rightarrow$ \texttt{core} $\rightarrow$ \texttt{fw}.
-2. Tại \texttt{fw}, do chính sách \textbf{PAT (Overload)}, địa chỉ nguồn 192.168.10.11 bị \texttt{iptables} dịch (MASQUERADE) thành IP Public của Firewall là 203.0.113.2 kèm theo một Source Port ngẫu nhiên.
-3. Gói tin đến \texttt{ext}. Khi \texttt{ext} trả lời về 203.0.113.2, \texttt{fw} tra bảng NAT Session, dịch ngược đích về 192.168.10.11 và trả lại cho h1."
+\section{GIAI ĐOẠN 4: CÂN BẰNG TẢI VÀ TRỰC QUAN HÓA (MỨC 3)}
 
-\subsection{3. Truy cập từ Internet vào DMZ (Kiểm chứng Static NAT)}
-\textbf{Thao tác:}
+\subsection{1. Demo Cân bằng tải tự động}
+\textbf{Câu lệnh:} \texttt{test_lb} (Trong Mininet CLI)
+\begin{expectedoutput}
+[SIM] Dang bom tai TCP vao PUBLIC IP 100.0.0.11... \\
+Tai web1 \%: 85.2\% \\
+>> CHUYEN -> web2 (Vi vuot nguong 80\%)
+\end{expectedoutput}
+\textbf{Lời thoại: } "Khi Web1 quá tải, script Python tự động cấu hình lại iptables để đẩy traffic sang Web2."
 
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|l|p{0.6\textwidth}|}
-    \hline
-    \rowcolor{backcolour} \textbf{Mô tả} & \textbf{Câu lệnh} \\ \hline
-    Truy cập Web qua IP Public & \texttt{ext curl -s 100.0.0.11:80} \\ \hline
-    \end{tabular}
-\end{table}
-\textbf{Lời thoại trình bày luồng gói tin:}
-"Khi ext truy cập IP Public ảo 100.0.0.11:
-1. Gói tin đến cổng ngoài của \texttt{fw}.
-2. Quá trình \textbf{DNAT (Destination NAT)} xảy ra, đổi IP đích từ 100.0.0.11 thành IP thật của Web1 là 10.10.10.11.
-3. FW kiểm tra ACL, thấy Port 80 hợp lệ, cho phép gói tin vào vùng DMZ.
-4. Khi Web1 trả lời, quá trình \textbf{SNAT (Source NAT)} dịch nguồn từ 10.10.10.11 ngược lại thành 100.0.0.11 để trả về cho ext."
-
-\newpage
-\section{PHẦN 3: ĐỊNH TUYẾN OSPF VÀ TÍNH SẴN SÀNG CAO HA (MỨC 3)}
-
-\subsection{1. Kiểm tra trạng thái hội tụ OSPF}
-\textbf{Thao tác:} Nhập các lệnh sau vào Mininet CLI:
-
-\begin{table}[H]
-    \centering
-    \renewcommand{\arraystretch}{1.2}
-    \begin{tabular}{|l|p{0.7\textwidth}|}
-    \hline
-    \rowcolor{backcolour} \textbf{Node} & \textbf{Câu lệnh kiểm tra OSPF/Routing} \\ \hline
-    Firewall (\texttt{fw}) & \texttt{fw vtysh --vty\_socket /tmp/frr\_fw -c "show ip ospf neighbor"} \\ \hline
-    Core (\texttt{core}) & \texttt{core vtysh --vty\_socket /tmp/frr\_core -c "show ip route"} \\ \hline
-    \end{tabular}
-\end{table}
-
-\textbf{Lời thoại:} "Tất cả các Router đều đạt trạng thái \textbf{Full}, chứng tỏ OSPF Area 0 đã hội tụ hoàn toàn. Bảng định tuyến của Core hiện đầy đủ các tuyến đường chữ 'O' (học từ OSPF)."
-
-\subsection{2. Demo cơ chế dự phòng HA (Failover)}
-\textbf{Thao tác:} (Mở thêm một Terminal mới, KHÔNG tắt Mininet)
-\begin{lstlisting}[language=bash]
-cd mmtnc_cuoi_ky_52300267
-sudo python3 scripts/test_ha.py
-\end{lstlisting}
-\textbf{Lời thoại:}
-"Để chứng minh Mức 3, em tiến hành đánh sập đường link chính giữa \texttt{dist1} và \texttt{core} trong lúc h1 đang ping liên tục. 
-Hệ thống mất khoảng \textbf{3.4 giây} để hội tụ lại. OSPF đã tự động phát hiện sự cố và định tuyến luồng dữ liệu chạy vòng qua đường \textbf{HA Link (dist1 $\rightarrow$ dist2 $\rightarrow$ core)}. Sau sự cố, kết nối hoàn toàn khôi phục mà không cần can thiệp thủ công."
-
-\newpage
-\section{PHẦN 4: BẢO MẬT ĐA LỚP VÀ TRỰC QUAN HÓA (MỨC 2 \& 3)}
-
-\subsection{1. Kiểm chứng Extended ACL và Standard ACL (Mức 2)}
-\textbf{Thao tác:}
-
-\begin{table}[H]
-    \centering
-    \begin{tabular}{|l|p{0.65\textwidth}|}
-    \hline
-    \rowcolor{backcolour} \textbf{Kịch bản kiểm tra} & \textbf{Câu lệnh} \\ \hline
-    Inside vào Web DMZ (OK) & \texttt{h1 curl -s 10.10.10.11:80} \\ \hline
-    VLAN 20 SSH vào DMZ (Blocked) & \texttt{h3 ssh 10.10.10.11} \\ \hline
-    DMZ vào Inside (Blocked) & \texttt{web1 ping -c 1 192.168.10.11} \\ \hline
-    \end{tabular}
-\end{table}
-\textbf{Lời thoại (Logic Mức 3):}
-"Hệ thống thiết lập Zero-Trust (Default DROP). 
-- \textbf{Extended ACL} (chỉ cho phép port 80/443) được em đặt ngay tại đầu vào của mạng nội bộ để loại bỏ gói tin rác sớm nhất, tiết kiệm băng thông. 
-- \textbf{Standard ACL} chặn h3 SSH vào Web1 hoạt động chính xác.
-- Server DMZ hoàn toàn không thể chủ động kết nối ngược vào Inside, chống Pivot Attack."
-
-\subsection{2. Phân tích Truy vết NAT và Heatmap (Mức 3)}
-\textbf{Thao tác:}
-Mở file ảnh \texttt{results/heatmap\_acl.png} (nếu đã chạy \texttt{sudo python3 scripts/security\_heatmap.py}).
-\textbf{Lời thoại:}
-"Thưa thầy/cô, việc dùng PAT có nhược điểm là làm mất \textbf{Traceability (tính truy vết)}. Để khắc phục (Mức 3), em đã bật tính năng Logging trên Iptables. Khi có sự cố, ta có thể đối chiếu Source Port từ log ISP với bảng Log Syslog của Linux để tìm ra chính xác IP nội bộ nào đã gây họa.
-Ngoài ra, log của các gói tin bị ACL Drop cũng được thu thập để vẽ thành \textbf{Security Heatmap}. Dựa vào các mảng màu đỏ, quản trị viên có thể ngay lập tức nhận diện địa chỉ IP nào đang cố gắng dò quét tấn công mạng vào khung giờ nào."
-
-\newpage
-\section{PHẦN 5: CÂN BẰNG TẢI DỰA TRÊN NGƯỠNG (MỨC 2 \& 3)}
-
-\subsection{1. Demo thuật toán Load Balancing}
-\textbf{Thao tác (trong Mininet CLI):}
-\begin{lstlisting}[language=bash]
-mininet> test_lb
-\end{lstlisting}
-\textbf{Lời thoại trình bày:}
-"Kịch bản Load Balancing của em hoạt động tự động thông qua Python giám sát băng thông:
-1. Script sẽ tiêm một luồng traffic lớn (iPerf) vào IP Public 100.0.0.11.
-2. Khi băng thông Web1 (Primary) vượt \textbf{ngưỡng 80\%}, Python ngay lập tức xóa rule DNAT cũ và thêm rule DNAT mới chuyển hướng các kết nối mới sang Web2 (Backup). Trên màn hình CLI sẽ báo \texttt{>> CHUYEN -> web2}.
-3. Khi tải trên Web1 giảm xuống \textbf{dưới 20\%}, hệ thống nhận diện Web1 đã an toàn, tự động cấu hình iptables trả lại luồng traffic về Web1."
-
-\subsection{2. Đồ thị và Phân tích hiệu năng}
-\textbf{Thao tác:}
-Mở file Excel báo cáo \texttt{results/mmtnc\_report\_*.xlsx} (hoặc các hình ảnh biểu đồ trong folder results).
-\textbf{Lời thoại:}
-"Để minh chứng, script của em sử dụng \textbf{Matplotlib} để vẽ đồ thị đường (Line Chart). Các đường đứt nét trên đồ thị minh họa chính xác thời điểm tải chạm ngưỡng 80\% và sự gia tăng băng thông tương ứng trên Server dự phòng.
-
-Đồng thời, bảng thống kê hiệu năng cho thấy: Khi gói tin phải đi qua Firewall xử lý NAT và kiểm tra ACL, \textbf{độ trễ (Latency) bị tăng thêm khoảng 1.3ms} (NAT Overhead - Tiêu chí Mức 3). Việc tốn thêm RAM/CPU để duy trì bảng \texttt{conntrack} là sự đánh đổi bắt buộc để có được sự an toàn cho toàn hệ thống."
-
-\vspace{1cm}
-\begin{center}
-    \textbf{KẾT THÚC DEMO THỰC HÀNH} \\
-    \textit{Chuyển sang phần trả lời câu hỏi lý thuyết.}
-\end{center}
-
-\newpage
-\section{PHẦN 6: TRẢ LỜI CÁC CÂU HỎI MỞ RỘNG TỪ GIẢNG VIÊN}
-
-\subsection{1. Tại sao lại chọn 2 VLAN 192.168.10.0/24 và 192.168.20.0/24?}
-\textbf{Trả lời:} Việc chia thành 2 VLAN riêng biệt mang lại hai lợi ích lớn:
-\begin{itemize}
-    \item \textbf{Hiệu suất:} Cô lập Broadcast Domain, ngăn chặn các gói tin rác (Broadcast) từ nhóm này làm ảnh hưởng thiết bị của nhóm kia, giúp mạng nhẹ hơn.
-    \item \textbf{Bảo mật:} Cho phép áp dụng các chính sách (ACL) khác nhau. Ví dụ trong đồ án: Dải \texttt{.10} (Nhân viên) được phép truy cập tự do, trong khi dải \texttt{.20} (Khách/IoT) bị Firewall cấm truy cập SSH vào hệ thống máy chủ.
-\end{itemize}
-
-\subsection{2. Vùng DMZ: Tách biệt vật lý thông qua s1, chứa Web1 và Web2 để làm gì?}
-\textbf{Trả lời:} DMZ (Demilitarized Zone) hoạt động như một "vùng đệm" giữa mạng Internet đầy rủi ro và mạng nội bộ (Inside) cần bảo vệ tuyệt đối. Đặt Web1 và Web2 ở đây giúp cung cấp dịch vụ ra bên ngoài an toàn. 
-
-Giả sử hacker khai thác được lỗ hổng và chiếm quyền điều khiển Web Server, chúng vẫn bị kẹt lại ở vùng DMZ và không thể tấn công sâu vào mạng nội bộ (do Firewall luôn có quy tắc \textbf{chặn 1 chiều từ DMZ khởi tạo kết nối vào Inside}).
-
-\subsection{3. Biên mạng: Router fw thực hiện NAT, ACL và giám sát bảo mật như thế nào?}
-\textbf{Trả lời:} \texttt{fw} là cửa ngõ duy nhất, nó thực thi 3 nhiệm vụ thông qua công cụ \texttt{iptables}:
-\begin{itemize}
-    \item \textbf{NAT/PAT:} Dùng chuỗi POSTROUTING để dịch hàng loạt IP Private của Inside ra 1 IP Public (PAT), giúp nội bộ vào được mạng Internet. Dùng PREROUTING/POSTROUTING để ánh xạ 1-1 cho Web Server (Static NAT), giúp người ngoài vào được Web Server.
-    \item \textbf{ACL:} Cấu hình các quy tắc trên chuỗi FORWARD với Policy mặc định là DROP (Zero-Trust). Tường lửa phải "bóc" Header từng gói tin xem xét IP Nguồn, IP Đích, và Port trước khi quyết định cho qua.
-    \item \textbf{Giám sát bảo mật:} Tích hợp module \texttt{LOG} để ghi nhận lại mọi gói tin bị từ chối (Drop) vào \texttt{syslog}. Từ đó xuất ra biểu đồ Heatmap nhận diện kẻ tấn công.
-\end{itemize}
-
-\subsection{4. Đường HA Link nối trực tiếp giữa dist1 và dist2 dự phòng sự cố như thế nào?}
-\textbf{Trả lời:} Cơ chế hoạt động dựa trên sự kết hợp giữa cáp vật lý dự phòng và giao thức định tuyến OSPF:
-\begin{itemize}
-    \item Ở trạng thái bình thường, dữ liệu đi từ \texttt{dist1} thẳng lên \texttt{core}.
-    \item Nếu dây cáp \texttt{dist1-core} bị đứt, Router phát hiện và OSPF lập tức gửi các bản tin cập nhật (LSA) báo lỗi cho toàn mạng.
-    \item Thuật toán trên các router chạy lại và nhận ra vẫn còn đường đi vòng qua HA Link. Bảng định tuyến lập tức được thay đổi: dữ liệu chạy từ \texttt{dist1} $\rightarrow$ \texttt{dist2} $\rightarrow$ \texttt{core}. Quá trình này diễn ra chỉ trong khoảng 3 giây, nhờ đó người dùng hầu như không bị gián đoạn mạng.
-\end{itemize}
-
-\subsection{5. External trong sơ đồ có nghĩa là gì?}
-\textbf{Trả lời:} Trong môi trường giả lập (Mininet), chúng ta không có mạng Internet thật. Thiết bị \texttt{ext} (có IP 203.0.113.1) đóng vai trò là một thiết bị Router hoặc Host nằm \textbf{ngoài vùng kiểm soát} của doanh nghiệp (đại diện cho Internet bên ngoài). 
-
-Chức năng của nó dùng để đóng vai "khách hàng" truy cập vào dịch vụ Web hợp pháp, hoặc đóng vai "hacker" thử ping/truy cập trái phép. Mục đích là để kiểm chứng xem tường lửa (\texttt{fw}) và cấu hình Static NAT của chúng ta có đang phòng thủ đúng như thiết kế hay không.
+\subsection{2. Xem biểu đồ nhiệt Security Heatmap}
+\textbf{Thao tác: } Mở ảnh \texttt{results/heatmap_acl.png}
+\begin{expectedoutput}
+(Hiển thị biểu đồ lưới với các mảng màu đỏ thẫm tại dải IP 192.168.20.x)
+\end{expectedoutput}
+\textbf{Lời thoại: } "Biểu đồ nhiệt này trích xuất từ log Firewall, cho thấy cường độ các nỗ lực xâm nhập bị chặn theo thời gian."
 
 \end{document}

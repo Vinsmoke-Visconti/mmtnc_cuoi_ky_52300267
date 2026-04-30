@@ -10,6 +10,13 @@ Chay   : python3 scripts/generate_report.py
 import json, os, sys, glob
 from datetime import datetime
 
+# Fix import path when running as a script
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+try:
+    from scripts import utils
+except ImportError:
+    import utils as utils
+
 try:
     import openpyxl
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -26,7 +33,7 @@ try:
 except ImportError:
     HAS_MPL = False
 
-RESULTS_DIR = 'results'
+RESULTS_DIR = utils.get_session_dir()
 
 # --- Style helpers ---
 def hfill(c='1F4E79'): return PatternFill('solid', fgColor=c)
