@@ -7,9 +7,16 @@ import os
 import re
 from datetime import datetime
 
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+try:
+    import scripts.utils as utils
+except ImportError:
+    import utils as utils
 # Path to syslog or where iptables logs are stored
 LOG_PATH = "/var/log/syslog"
-OUTPUT_PATH = "/home/visconti/mininet_labs/CUOI_KY_TKM/mmtnc_cuoi_ky_52300267/results/heatmap_acl.png"
+OUTPUT_DIR = utils.get_session_dir()
+OUTPUT_PATH = os.path.join(OUTPUT_DIR, "heatmap_acl.png")
 
 def parse_logs():
     """Parse ACL-DROP logs from syslog."""
@@ -41,7 +48,10 @@ def parse_logs():
 
 def simulate_data():
     """Simulate attack data if logs are empty/missing."""
-    ips = ["192.168.20.11", "192.168.20.12", "192.168.20.13", "100.0.0.1"]
+    ips = [
+        "192.168.10.11", "192.168.20.11", "192.168.20.12", "192.168.20.13", 
+        "100.0.0.1", "100.0.0.5", "10.10.10.50", "192.168.30.15"
+    ]
     times = [f"21:{m:02d}" for m in range(20, 30)]
     data = []
     for ip in ips:

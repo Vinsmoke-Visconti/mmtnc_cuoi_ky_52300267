@@ -21,7 +21,13 @@ import time
 import json
 import subprocess
 import threading
+import sys, os, re
 from datetime import datetime
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+try:
+    from scripts import utils
+except ImportError:
+    import utils as utils
 
 try:
     import matplotlib
@@ -34,7 +40,7 @@ except ImportError:
     print('[WARN] matplotlib chua cai. Chi ghi log, khong ve bieu do.')
     print('       Chay: pip3 install matplotlib')
 
-RESULTS_DIR  = 'results'
+RESULTS_DIR  = utils.get_session_dir()
 POLL_INTERVAL = 2.0    # giay
 UPPER_THRESH  = 80.0   # %: nguong tren, chuyen sang backup
 LOWER_THRESH  = 20.0   # %: nguong duoi, chuyen ve primary
@@ -54,7 +60,9 @@ def _measure_bw(host, duration=1.5):
     Tra ve Mbps.
     """
     def get_bytes():
-        intf = f"{host.name}-eth0"
+        # Tu dong tim interface chinh (khong phai loopback)
+        intf = host.cmd("ip -br link show | grep -v 'lo' | awk '{print $1}' | head -1").strip()
+        if not intf: intf = "eth0"
         out = host.cmd(f'cat /sys/class/net/{intf}/statistics/rx_bytes 2>/dev/null || echo 0')
         try: return int(out.strip())
         except: return 0
@@ -109,12 +117,14 @@ def demo_load_balance(net, cycles=15):
     print(f'  {"Chu ky":<7} {"Thoi gian":<12} {"web1 (Mbps)":<14} {"web2 (Mbps)":<14} {"Tai web1 %":<12} {"Server dang dung":<18} {"Hanh dong"}')
     print('  ' + '-'*90)
 
-    # Gia lap phat sinh tai: h3 gui traffic den PUBLIC IP 100.0.0.11
+    # Gia lap phat sinh tai: ext gui traffic den PUBLIC IP 100.0.0.11
     # De Firewall co the thuc hien DNAT Load Balancing
     _redirect_to(fw, web1.IP())
-    print(f'  [SIM] Dang bom tai 90Mbps vao PUBLIC IP 100.0.0.11 (port 5201)...')
-    h3.cmd(f'iperf -c 100.0.0.11 -p 5201 -t {int(cycles * POLL_INTERVAL + 10)} -b 90M &')
-    time.sleep(0.5)
+    print(f'  [SIM] Dang bom tai TCP vao PUBLIC IP 100.0.0.11 (port 5201)...')
+    ext = net.get('ext')
+    # Dung sendCmd de dam bao khong bi treo CLI
+    ext.sendCmd(f'iperf -c 100.0.0.11 -p 5201 -t {int(cycles * POLL_INTERVAL + 30)} -i 1')
+    time.sleep(1.0)
 
     last_switch_time = 0
 
@@ -169,7 +179,8 @@ def demo_load_balance(net, cycles=15):
         if elapsed < POLL_INTERVAL:
             time.sleep(POLL_INTERVAL - elapsed)
 
-    # Dung iperf
+    # Dung iperf va doc output con lai de giai phong CLI
+    ext.waitOutput()
     h3.cmd('pkill -f iperf 2>/dev/null || true')
     web1.cmd('pkill -f "iperf -s" 2>/dev/null || true')
     web2.cmd('pkill -f "iperf -s" 2>/dev/null || true')

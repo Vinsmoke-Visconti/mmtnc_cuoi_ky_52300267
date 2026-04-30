@@ -1,33 +1,55 @@
 \section{THỰC NGHIỆM CÂN BẰNG TẢI THEO NGƯỠNG}
 
 \subsection{Thuật toán giám sát và điều tiết lưu lượng}
-Để tối ưu hóa tài nguyên phần cứng và đảm bảo dịch vụ Web trong DMZ luôn phản hồi ở mức tốt nhất, một thuật toán Cân bằng tải (Load Balancing) dựa trên ngưỡng (Threshold-based) đã được lập trình bằng Python.
+Để tối ưu hóa tài nguyên phần cứng và đảm bảo dịch vụ Web trong DMZ luôn phản hồi ở mức tốt nhất, một thuật toán Cân bằng tải (Load Balancing) dựa trên ngưỡng (Threshold-based) đã được lập trình bằng Python (\texttt{load\_balancer.py}).
 
 Thuật toán hoạt động dựa trên cơ chế vòng lặp Polling liên tục (mặc định 2 giây/lần):
 \begin{enumerate}
     \item \textbf{Đọc băng thông thực tế:} Hàm \texttt{\_measure\_bw} truy cập trực tiếp vào hệ thống file của Linux Kernel (\texttt{/sys/class/net/eth0/statistics/rx\_bytes}) của Server để tính toán lưu lượng theo thời gian thực (đơn vị Mbps).
     \item \textbf{Xử lý ngưỡng trên (Upper Threshold - 80\%):} Ban đầu, mọi lưu lượng (DNAT) đều được trỏ về Web1 (Primary). Nếu tải trên Web1 vượt quá 80\% tổng băng thông giới hạn (100Mbps), thuật toán sẽ nhận diện Web1 đang gặp trạng thái quá tải. Ngay lập tức, Python sẽ gọi một tập lệnh cấu hình lại \texttt{iptables} trên Firewall, xóa bỏ Rule DNAT cũ và trỏ luồng truy cập mới sang Web2 (Backup).
     \item \textbf{Xử lý ngưỡng dưới (Lower Threshold - 20\%):} Trong quá trình Web2 đang hoạt động, script vẫn tiếp tục giám sát Web1. Khi tải trên Web1 đã giảm xuống dưới 20\%, chứng tỏ Server đã an toàn trở lại, hệ thống sẽ đổi luồng (redirect) một lần nữa, đưa cấu hình mạng trở về trạng thái trỏ vào Web1 để tiết kiệm tài nguyên cho Web2.
+    \item \textbf{Cơ chế chống rung chuyển tải (Anti-Flapping):} Hệ thống được tích hợp một "Hold-down timer". Sau mỗi lần chuyển đổi luồng, script sẽ tạm dừng ra quyết định chuyển đổi trong 10 giây để tránh tình trạng hệ thống nhảy qua nhảy lại liên tục khi lưu lượng mạng dao động không ổn định quanh mức 80\%.
 \end{enumerate}
 
 \subsection{Kết quả điều tiết lưu lượng thực tế}
-Việc chuyển đổi luồng dữ liệu này hoàn toàn trong suốt (transparent) với người dùng bên ngoài, do họ luôn chỉ kết nối vào duy nhất một IP Public (\texttt{100.0.0.11}). Sự điều phối diễn ra ở tầng mạng (Layer 3/4) thông qua quá trình dịch đổi DNAT linh hoạt.
+Việc chuyển đổi luồng dữ liệu này hoàn toàn trong suốt (transparent) với người dùng bên ngoài, do họ luôn chỉ kết nối vào duy nhất một IP Public (\texttt{100.0.0.11}).
 
-\begin{figure}[H]
-    \centering
-    % [NOTE] Sinh viên cần chạy script "test_lb" và dán ảnh sinh ra (thư mục results) vào thư mục image của báo cáo, rồi bỏ comment dòng bên dưới.
-    % \includegraphics[width=0.9\textwidth]{../results/lb_chart.png}
-    \caption{Đồ thị Line Chart thay đổi băng thông trên các Server Web1/Web2 theo thời gian thực}
-    \label{fig:lb_chart}
-\end{figure}
+\subsubsection{Xác thực qua nhật ký hệ thống (CLI Log)}
+Khi chạy lệnh kiểm thử, hệ thống sẽ hiển thị bảng giám sát thời gian thực. Các hành động thay đổi DNAT trên Firewall được thực hiện tự động bởi Python.
 
 \begin{figure}[H]
     \centering
     % [HUONG DAN]: Chạy lệnh "test_lb" trong Mininet CLI. Chụp màn hình Terminal 
     % lúc xuất hiện dòng ">> CHUYEN -> web2". Lưu vào image/lb_cli_output.png.
-    % \includegraphics[width=0.8\textwidth]{image/lb_cli_output.png}
-    \caption{Nhật ký hệ thống (CLI Log) ghi lại thời điểm tự động chuyển luồng DNAT}
+    \includegraphics[width=0.85\textwidth]{image/lb_cli_output.png}
+    \caption{Nhật ký hệ thống (CLI Log) ghi lại tiến trình tự động điều tiết lưu lượng}
     \label{fig:lb_cli}
 \end{figure}
 
-\textit{Phân tích đồ thị (Hình \ref{fig:lb_chart}):} Được vẽ bằng thư viện Matplotlib (Python). Đường màu xanh biểu diễn phần trăm tải trên Web1. Khi đường này cắt ngang mức 80\% (đường gạch đứt màu đỏ), hệ thống lập tức ghi nhận một hành động "Switch" (Chuyển đổi). Lúc này, lưu lượng trên Web2 (đường nét đứt màu cam) bắt đầu tăng vọt do phải tiếp nhận các luồng kết nối mới được Firewall bẻ lái sang. Khi tải Web1 giảm chạm mốc 20\% (đường đứt nét xanh lá), biểu đồ lại hiển thị thêm một lần "Switch" để khôi phục cấu hình như ban đầu. Kịch bản thực nghiệm này chứng minh tính đúng đắn và thời gian đáp ứng cực nhanh của cơ chế tự động hóa mạng (Network Automation).
+\subsubsection{Phân tích đồ thị băng thông (Visualized Analytics)}
+Để cung cấp cái nhìn trực quan cho người quản trị, script tự động xuất ra đồ thị Line Chart thể hiện sự biến thiên của băng thông trên cả hai Server.
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chạy script "test_lb", lấy ảnh "lb_chart_*.png" trong thư mục results/
+    % dán vào thư mục image/ của báo cáo.
+    \includegraphics[width=0.9\textwidth]{image/lb_chart.png}
+    \caption{Đồ thị thay đổi băng thông và các điểm chuyển mạch (Switching Points)}
+    \label{fig:lb_chart}
+\end{figure}
+
+\textit{Phân tích đồ thị (Hình \ref{fig:lb_chart}):} Được vẽ bằng thư viện Matplotlib. Đường màu xanh biểu diễn tải trên Web1. Khi đường này cắt ngang mức 80\% (đường gạch đứt màu đỏ), hệ thống lập tức thực hiện hành động "Switch". Lúc này, lưu lượng trên Web2 (đường nét đứt màu cam) bắt đầu tăng vọt do phải tiếp nhận các luồng kết nối mới. Khi tải Web1 giảm chạm mốc 20\% (đường đứt nét xanh lá), hệ thống lại thực hiện "Switch" để khôi phục trạng thái ban đầu.
+
+\subsubsection{Báo cáo dữ liệu định dạng Excel (Data Reporting)}
+Bên cạnh hình ảnh, hệ thống còn tự động xuất báo cáo chi tiết dưới dạng file Excel để phục vụ việc lưu trữ và phân tích dữ liệu chuyên sâu (Data-driven Networking).
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình file Excel báo cáo trong thư mục results/.
+    % Lưu vào image/excel_report_lb.png.
+    \includegraphics[width=0.85\textwidth]{image/excel_report_lb.png}
+    \caption{Dữ liệu thực nghiệm được trích xuất ra định dạng báo cáo chuyên nghiệp}
+    \label{fig:lb_excel}
+\end{figure}
+
+\textit{Đánh giá kết quả:} Cơ chế Cân bằng tải hoạt động chính xác với thời gian phản ứng gần như tức thì ngay khi tải chạm ngưỡng. Việc kết hợp giữa \texttt{iptables} và logic điều khiển Python là minh chứng cho xu hướng mạng điều khiển bằng phần mềm (SDN) trong các hệ thống Campus hiện đại.

@@ -29,15 +29,22 @@ OSPF:
   - fw-router, core-r, dist1, dist2 chay OSPF area 0
   - FRR daemons (zebra + ospfd)
 =============================================================
+GIA DINH KICH BAN VAN PHONG (OFFICE SCENARIO):
+  - Dia diem: Toa nha van phong 2 tang.
+  - Nhan vien: ~50 nguoi chia lam 2 phong ban chinh.
+  - Phan doan mang (Subnets):
+    * Tang 1 (192.168.10.0/24): Phong Ke toan & Ban Giam doc.
+    * Tang 2 (192.168.20.0/24): Phong Marketing & Khach vang lai.
+  - Thiet bi khac: 
+    * May in (IP Printer): 192.168.10.50.
+    * He thong IP Phone: 192.168.10.100-110.
+  - Muc tieu: Bao mat vung DMZ chua CRM/ERP, dam bao HA khi dut link.
+=============================================================
 FIX LOG:
-  v1: Kien truc ban dau
-  v2: Fix NAT iptables co the xung dot voi FORWARD chain
-      Fix FRR socket path rieng cho tung node
-      Fix rp_filter cho cac router
-      Them wait sau khi start FRR de OSPF hoi tu
-  v3: Fix switch canonical names (dmz->s1, acc1->s2, acc2->s3)
-      Mininet OVS yeu cau ten switch dang s<number>
-      Them ICMP FORWARD rule cho ext->DMZ ping Static NAT
+  v1-v3: ...
+  v4: [UPGRADE MUC 3] - Tach Firewall ACL ra file acl.sh rieng.
+      Them chuc nang dropacl de xoa bo cau hinh nhanh.
+      Bo sung kịch bản giả định văn phòng chi tiết.
 =============================================================
 """
 
@@ -287,19 +294,14 @@ def configure_nat(net):
     # Default FORWARD policy: DROP
     fw.cmd('iptables -P FORWARD DROP')
 
-    # --- [UPGRADE MUC 3] Logging cho Heatmap (Security Intelligence) ---
-    fw.cmd('iptables -A FORWARD -m limit --limit 5/min -j LOG --log-prefix "ACL-DROP: " --log-level 4')
+    # --- [UPGRADE MUC 3] Goi script acl.sh de cau hinh Firewall tap trung ---
+    info('  [UPGRADE] Applying Firewall ACLs from acl.sh...\n')
+    fw.cmd('bash acl.sh')
 
-    # INPUT/OUTPUT: ACCEPT (router chinh no)
-    fw.cmd('iptables -P INPUT  ACCEPT')
-    fw.cmd('iptables -P OUTPUT ACCEPT')
-
-    info('  [OK] PAT Overload: 192.168.10/20.x -> fw-eth0 (MASQUERADE)\n')
-    info('  [OK] Static NAT:   10.10.10.11 <-> 100.0.0.11 (web1)\n')
-    info('  [OK] Static NAT:   10.10.10.12 <-> 100.0.0.12 (web2)\n')
-    info('  [OK] Extended ACL: Inside -> DMZ chi port 80/443\n')
-    info('  [OK] Standard ACL: DMZ khong khoi tao ket noi vao Inside\n')
-    info('  [OK] Firewall FORWARD policy: DROP by default\n')
+    info('  [OK] PAT Overload applied.\n')
+    info('  [OK] Static NAT for DMZ Servers applied.\n')
+    info('  [OK] ACL (Standard/Extended) and Default DROP applied.\n')
+    info('  [OK] To flush ACLs, run: sudo ./drop_acl.sh\n')
 
 
 # ---------------------------------------------------------------

@@ -86,4 +86,7 @@ python3 scripts/generate_report.py
 
 echo ""
 echo -e "${GREEN}[DONE] Hoan thanh! Ket qua trong thu muc results/${NC}"
+echo -e "${BLUE}[INFO] Ban co the mo Dashboard Web de xem ket qua truc quan:${NC}"
+echo -e "       Chay: python3 dashboard.py"
+echo ""
 ls -lh results/

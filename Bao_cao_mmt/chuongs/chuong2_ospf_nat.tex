@@ -4,40 +4,60 @@
 Để đảm bảo các Router trong mạng Campus (Core, Dist1, Dist2, FW) nhận biết được đường đi đến các mạng con của nhau, giao thức OSPF Area 0 được triển khai. Quá trình cấu hình được thực hiện thông qua bộ phần mềm FRRouting (FRR) gồm hai tiến trình chính là \texttt{zebra} (quản lý giao diện) và \texttt{ospfd} (định tuyến OSPF).
 Các Router sẽ thiết lập Neighbor và trao đổi LSA, tạo nên một bảng định tuyến hoàn chỉnh, giúp gói tin có thể đi từ mạng Access đến DMZ hoặc đi ra Firewall một cách tối ưu.
 
+\subsubsection{Xác thực trạng thái láng giềng (Neighbor)}
+Việc thiết lập quan hệ láng giềng là bước tiên quyết để OSPF trao đổi cơ sở dữ liệu đường truyền. Trạng thái \textbf{Full} trên các interface là minh chứng cho sự hội tụ thành công.
+
 \begin{figure}[H]
     \centering
-    % [HUONG DAN]: Chạy lệnh "fw vtysh -c 'show ip ospf neighbor'" trên Mininet.
-    % Chụp kết quả hiển thị trạng thái "Full" và lưu vào image/ospf_neighbor.png.
-    % \includegraphics[width=0.8\textwidth]{image/ospf_neighbor.png}
-    \caption{Trạng thái láng giềng OSPF (Full) trên Router biên}
+    % [HUONG DAN]: Chụp màn hình lệnh "fw vtysh --vty_socket /tmp/frr_fw -c 'show ip ospf neighbor'". 
+    % Đảm bảo trạng thái hiện chữ "Full". Lưu vào image/ospf_neighbor_fw.png
+    \includegraphics[width=0.85\textwidth]{image/ospf_neighbor_fw.png}
+    \caption{Trạng thái láng giềng OSPF hội tụ (Full) giữa Firewall và Core Router}
     \label{fig:ospf_neighbor}
 \end{figure}
 
+\subsubsection{Xác thực bảng định tuyến OSPF tại Core}
+Core Router đóng vai trò là "bộ não" điều hướng. Toàn bộ các mạng con của Tầng 1, Tầng 2 và vùng DMZ phải xuất hiện trong bảng định tuyến với ký hiệu \texttt{O} (OSPF).
+
 \begin{figure}[H]
     \centering
-    % [HUONG DAN]: Chạy lệnh "core vtysh -c 'show ip route'" trên Mininet.
-    % Chụp bảng định tuyến có các đường học từ OSPF (ký hiệu O) và lưu vào image/routing_table.png.
-    % \includegraphics[width=0.8\textwidth]{image/routing_table.png}
-    \caption{Bảng định tuyến của Core Router hiển thị các mạng học qua OSPF}
+    % [HUONG DAN]: Chụp màn hình lệnh "core vtysh --vty_socket /tmp/frr_core -c 'show ip route ospf'". 
+    % Chụp rõ các dòng route 192.168.10.0, 192.168.20.0 và 10.10.10.0. Lưu vào image/core_routing_ospf.png
+    \includegraphics[width=0.85\textwidth]{image/core_routing_ospf.png}
+    \caption{Bảng định tuyến Core Router ghi nhận đầy đủ các tuyến đường từ các nhánh mạng}
     \label{fig:routing_table}
 \end{figure}
 
-\subsection{Cấu hình NAT và PAT}
+\subsection{Cấu hình NAT và PAT (Biên dịch địa chỉ)}
 Vì dải địa chỉ IP nội bộ (\texttt{192.168.x.x} và \texttt{10.10.10.x}) là địa chỉ Private, không thể định tuyến trên Internet, hệ thống triển khai hai kỹ thuật biên dịch địa chỉ tại Router FW:
 
 \subsubsection{PAT Overload cho mạng Inside}
 Sử dụng công cụ \texttt{iptables} trên Linux, mọi luồng dữ liệu từ mạng nội bộ (Inside) khi đi ra cổng \texttt{fw-eth0} kết nối Internet đều được ngụy trang (MASQUERADE) dưới địa chỉ IP Public của FW (\texttt{203.0.113.2}).
-\begin{lstlisting}[style=powershell]
-iptables -t nat -A POSTROUTING -s 192.168.10.0/24 -o fw-eth0 -j MASQUERADE
-iptables -t nat -A POSTROUTING -s 192.168.20.0/24 -o fw-eth0 -j MASQUERADE
-\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình lệnh "fw iptables -t nat -L POSTROUTING -n -v". 
+    % Thấy rule MASQUERADE cho dải 192.168.0.0. Lưu vào image/pat_config.png
+    \includegraphics[width=0.8\textwidth]{image/pat_config.png}
+    \caption{Cấu hình PAT (Overload) trên chuỗi POSTROUTING của Firewall}
+    \label{fig:pat_config}
+\end{figure}
 
 \subsubsection{Static NAT cho Server vùng DMZ}
-Để máy tính từ bên ngoài Internet có thể truy cập được Web Server trong DMZ, kỹ thuật Static NAT được áp dụng để ánh xạ 1-1 giữa IP Public và IP Private:
+Để máy tính từ bên ngoài Internet có thể truy cập được Web Server trong DMZ, kỹ thuật Static NAT được áp dụng để ánh xạ 1-1 giữa IP Public và IP Private thông qua các rule DNAT và SNAT:
 \begin{itemize}
     \item \texttt{100.0.0.11} (Public) $\Leftrightarrow$ \texttt{10.10.10.11} (Web1 Private)
     \item \texttt{100.0.0.12} (Public) $\Leftrightarrow$ \texttt{10.10.10.12} (Web2 Private)
 \end{itemize}
+
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình lệnh "fw iptables -t nat -L PREROUTING -n -v". 
+    % Thấy các rule DNAT chuyển hướng 100.0.0.11 sang 10.10.10.11. Lưu vào image/static_nat_config.png
+    \includegraphics[width=0.8\textwidth]{image/static_nat_config.png}
+    \caption{Cấu hình Static NAT (DNAT) cho các Server trong vùng DMZ}
+    \label{fig:static_nat_config}
+\end{figure}
 
 \subsection{Bảng thống kê NAT (NAT Translation Table)}
 Dưới đây là bảng mô phỏng chi tiết các bản dịch NAT được ghi nhận trên Firewall khi có nhiều thiết bị từ Inside truy cập Internet và thiết bị Outside truy cập vào DMZ đồng thời.
@@ -59,16 +79,28 @@ Dưới đây là bảng mô phỏng chi tiết các bản dịch NAT được g
     \caption{Chi tiết bảng dịch NAT/PAT trên Firewall Router}
     \label{tab:nat_table}
 \end{table}
-\textit{Giải thích: Các luồng từ 192.168.x.x (Inside Local) đều bị đổi Source IP thành 203.0.113.2 (Outside Global) với port ngẫu nhiên. Ngược lại, luồng từ Outside truy cập vào 100.0.0.11 sẽ được DNAT về 10.10.10.11 port 80.}
 
+\subsection{Kiểm chứng thực nghiệm NAT/PAT}
+\subsubsection{Xác thực PAT (Inside ra Internet)}
+Thực hiện lệnh Ping từ máy trạm \texttt{h1} ra địa chỉ ngoài Internet.
 \begin{figure}[H]
     \centering
-    % [HUONG DAN]: Chạy lệnh "ext curl -s 100.0.0.11:80" hoặc "ext ping -c 3 100.0.0.11".
-    % Chụp màn hình cho thấy ext truy cập được vào web1 qua IP NAT. Lưu vào image/nat_verify.png.
-    % \includegraphics[width=0.8\textwidth]{image/nat_verify.png}
-    \caption{Kiểm tra truy cập từ Internet vào DMZ qua cơ chế Static NAT}
-    \label{fig:nat_verify}
+    % [HUONG DAN]: Chụp màn hình lệnh "h1 ping -c 3 203.0.113.1". Lưu vào image/pat_verify.png
+    \includegraphics[width=0.7\textwidth]{image/pat_verify.png}
+    \caption{Xác thực kết nối ra Internet thành công thông qua PAT}
+    \label{fig:pat_verify_img}
 \end{figure}
+
+\subsubsection{Xác thực Static NAT (Outside vào DMZ)}
+Thực hiện lệnh truy vấn HTTP từ node \texttt{ext} vào IP Public của Server.
+\begin{figure}[H]
+    \centering
+    % [HUONG DAN]: Chụp màn hình lệnh "ext curl -s 100.0.0.11:80". Lưu vào image/static_nat_verify.png
+    \includegraphics[width=0.75\textwidth]{image/static_nat_verify.png}
+    \caption{Truy cập Web Server DMZ thành công thông qua địa chỉ Static NAT}
+    \label{fig:nat_verify_img}
+\end{figure}
+
 \subsection{Đánh giá tính sẵn sàng cao và Hội tụ OSPF}
 Để minh chứng cho khả năng HA (Mức 3), hệ thống đã thực hiện kịch bản "đánh sập" đường link chính giữa \texttt{core} và \texttt{dist1}. Kết quả quan sát cho thấy OSPF đã thực hiện tính toán lại đường đi và chuyển hướng traffic qua đường link HA trong thời gian rất ngắn.
 
